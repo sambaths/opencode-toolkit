@@ -1,0 +1,16 @@
+{
+  "name": "opencode-toolkit-draft",
+  "version": "0.1.0",
+  "description": "Portable project-local OpenCode agent and command toolkit",
+  "type": "module",
+  "license": "MIT",
+  "bin": { "opencode-toolkit": "bin/install.mjs" },
+  "files": ["bin/", "lib/", "bundle/", "LICENSE", "NOTICE.md", "README.md"],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "test:coverage": "node --test --experimental-test-coverage test/*.test.mjs",
+    "validate": "node bin/validate.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": { "jsonc-parser": "3.3.1", "yaml": "2.8.2" }
+}
