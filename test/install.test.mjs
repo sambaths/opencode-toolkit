@@ -70,32 +70,36 @@ test('supports JSONC and preserves unrelated comments', t => {
   assert.equal(existsSync(path.join(project, '.opencode/opencode.json')), false);
 });
 
-test('unmanaged conflicts abort before any writes', t => {
+test('replaces matching unmanaged files and backs up their previous contents', t => {
   const project = fixture(t); const dir = path.join(project, '.opencode/agents'); mkdirSync(dir, { recursive: true });
   writeFileSync(path.join(dir, 'manager.md'), 'my manager');
-  const result = run('--project', project);
-  assert.notEqual(result.status, 0); assert.match(result.stderr, /conflict/i);
-  assert.equal(read(path.join(dir, 'manager.md')), 'my manager');
-  assert.equal(existsSync(path.join(project, '.opencode/opencode.json')), false);
-  assert.deepEqual(readdirSync(dir), ['manager.md']);
+  writeFileSync(path.join(dir, 'my-helper.md'), 'keep this role');
+  const result = install({ project });
+  assert.equal(read(path.join(dir, 'manager.md')), read(path.join(root, 'bundle/agents/manager.md')));
+  assert.equal(read(path.join(dir, 'my-helper.md')), 'keep this role');
+  assert.equal(read(path.join(result.backupDirectory, '.opencode/agents/manager.md')), 'my manager');
+  assert.equal(read(path.join(project, '.opencode/.toolkit-backups/.gitignore')), '*\n!.gitignore\n');
 });
 
-test('updates refuse locally modified managed files', t => {
+test('updates replace locally modified managed files with a recoverable backup', t => {
   const project = fixture(t); assert.equal(run('--project', project).status, 0);
   const file = path.join(project, '.opencode/agents/manager.md'); writeFileSync(file, 'customized');
-  const result = run('--project', project);
-  assert.notEqual(result.status, 0); assert.match(result.stderr, /conflict/i);
-  assert.equal(read(file), 'customized');
+  const result = install({ project });
+  assert.equal(read(file), read(path.join(root, 'bundle/agents/manager.md')));
+  assert.equal(read(path.join(result.backupDirectory, '.opencode/agents/manager.md')), 'customized');
 });
 
-test('conflicting existing permissions are not silently relaxed', t => {
+test('replaces matching permission rules and preserves unrelated specific rules', t => {
   const project = fixture(t); mkdirSync(path.join(project, '.opencode'));
   const file = path.join(project, '.opencode/opencode.json');
-  const original = JSON.stringify({ permissions: [{ action: 'shell', resource: '*', effect: 'deny' }] });
+  const localRule = { action: 'shell', resource: 'custom-deploy *', effect: 'deny' };
+  const original = JSON.stringify({ permissions: [{ action: 'shell', resource: '*', effect: 'deny' }, localRule] });
   writeFileSync(file, original);
-  const result = run('--project', project);
-  assert.notEqual(result.status, 0); assert.match(result.stderr, /permission.*conflict/i);
-  assert.equal(read(file), original);
+  const result = install({ project });
+  const rules = configuration(project).permissions;
+  assert.deepEqual(rules.filter(r => r.action === 'shell' && r.resource === '*'), [{ action: 'shell', resource: '*', effect: 'allow' }]);
+  assert.deepEqual(rules.at(-1), localRule);
+  assert.equal(read(path.join(result.backupDirectory, '.opencode/opencode.json')), original);
 });
 
 test('invalid JSON, ambiguous configs and invalid arguments fail safely', t => {
@@ -140,14 +144,19 @@ test('managed updates replace pristine files and old rules without duplicate mat
   assert.equal(rules.length, 1); assert.equal(rules[0].effect, 'deny');
 });
 
-test('JSON and legacy Markdown role collisions fail before writing', t => {
+test('replaces JSON and legacy Markdown definitions while retaining unrelated definitions', t => {
   const project = fixture(t); mkdirSync(path.join(project, '.opencode'));
   const file = path.join(project, '.opencode/opencode.json');
-  writeFileSync(file, JSON.stringify({ agents: { manager: { mode: 'primary' } } }));
-  assert.match(run('--project', project).stderr, /conflict/i);
-  writeFileSync(file, '{}'); mkdirSync(path.join(project, '.opencode/command'));
+  writeFileSync(file, JSON.stringify({ agents: { manager: { mode: 'primary' }, 'local-helper': { mode: 'subagent' } }, commands: { plan: { template: 'old plan' }, local: { template: 'keep' } } }));
+  mkdirSync(path.join(project, '.opencode/command'));
   writeFileSync(path.join(project, '.opencode/command/plan.md'), 'local plan');
-  assert.match(run('--project', project).stderr, /Legacy definition conflict/);
+  const result = install({ project });
+  assert.equal(configuration(project).agents.manager, undefined);
+  assert.deepEqual(configuration(project).agents['local-helper'], { mode: 'subagent' });
+  assert.equal(configuration(project).commands.plan, undefined);
+  assert.deepEqual(configuration(project).commands.local, { template: 'keep' });
+  assert.equal(existsSync(path.join(project, '.opencode/command/plan.md')), false);
+  assert.equal(read(path.join(result.backupDirectory, '.opencode/command/plan.md')), 'local plan');
 });
 
 test('parsing, path and schema boundary validation rejects invalid inputs', t => {
@@ -159,7 +168,7 @@ test('parsing, path and schema boundary validation rejects invalid inputs', t =>
     assert.throws(() => mergeConfig(existing, incoming), /Invalid/);
   }
   assert.throws(() => mergeConfig({ permissions: [null] }, { ...incoming, permissions: [{ action: 'shell', resource: '*', effect: 'allow' }] }), /Invalid/);
-  assert.throws(() => mergeConfig({ experimental: { subagent_depth: 3 } }, { ...incoming, experimental: { subagent_depth: 1 } }), /conflict/);
+  assert.equal(mergeConfig({ experimental: { subagent_depth: 3, todo: true } }, { ...incoming, experimental: { subagent_depth: 1 } }).experimental.subagent_depth, 1);
   mkdirSync(path.join(project, '.opencode')); writeFileSync(path.join(project, '.opencode/toolkit-manifest.json'), '{"format":99}');
   assert.match(run('--project', project).stderr, /Unsupported/);
 });
@@ -174,7 +183,7 @@ test('unrelated edits to existing JSONC maps survive updates', t => {
   assert.equal(run('--project', project).status, 0);
 });
 
-test('respects direct project config defaults and refuses root role/policy conflicts', t => {
+test('preserves root config defaults and replaces matching root definitions with backups', t => {
   const project = fixture(t); const file = path.join(project, 'opencode.json');
   const original = JSON.stringify({ default_agent: 'build', model: 'local/model' });
   writeFileSync(file, original);
@@ -183,8 +192,10 @@ test('respects direct project config defaults and refuses root role/policy confl
   assert.equal(read(file), original);
   const conflict = fixture(t);
   writeFileSync(path.join(conflict, 'opencode.json'), JSON.stringify({ agents: { manager: { mode: 'primary' } } }));
-  assert.match(run('--project', conflict).stderr, /conflict/i);
-  assert.equal(existsSync(path.join(conflict, '.opencode')), false);
+  const result = install({ project: conflict });
+  assert.equal(JSON.parse(read(path.join(conflict, 'opencode.json'))).agents.manager, undefined);
+  assert.ok(existsSync(path.join(conflict, '.opencode/agents/manager.md')));
+  assert.equal(JSON.parse(read(path.join(result.backupDirectory, 'opencode.json'))).agents.manager.mode, 'primary');
 });
 
 test('adopts an identical pre-existing shared policy without false conflicts', t => {
@@ -192,4 +203,22 @@ test('adopts an identical pre-existing shared policy without false conflicts', t
   cpSync(path.join(root, 'bundle/opencode.json'), path.join(project, '.opencode/opencode.json'));
   const result = run('--project', project);
   assert.equal(result.status, 0, result.stderr);
+});
+
+test('dry-run lists replacements/removals without changing files or creating backups', t => {
+  const project = fixture(t); mkdirSync(path.join(project, '.opencode/command'), { recursive: true });
+  const file = path.join(project, '.opencode/command/plan.md'); writeFileSync(file, 'old plan');
+  const result = install({ project, dryRun: true });
+  assert.equal(read(file), 'old plan');
+  assert.equal(existsSync(path.join(project, '.opencode/.toolkit-backups')), false);
+  assert.ok(result.changes.includes('.opencode/command/plan.md'));
+  assert.equal(result.backupDirectory, null);
+});
+
+test('removes conflicting Markdown for retained JSON agents, with a backup', t => {
+  const project = fixture(t); mkdirSync(path.join(project, '.opencode/agents'), { recursive: true });
+  const file = path.join(project, '.opencode/agents/tdd-guide.md'); writeFileSync(file, 'old tdd');
+  const result = install({ project });
+  assert.equal(existsSync(file), false);
+  assert.equal(read(path.join(result.backupDirectory, '.opencode/agents/tdd-guide.md')), 'old tdd');
 });
