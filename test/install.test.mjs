@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, symlinkSync, rmSync, readdirSync, cpSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, symlinkSync, rmSync, readdirSync, cpSync, chmodSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -221,4 +221,32 @@ test('removes conflicting Markdown for retained JSON agents, with a backup', t =
   const result = install({ project });
   assert.equal(existsSync(file), false);
   assert.equal(read(path.join(result.backupDirectory, '.opencode/agents/tdd-guide.md')), 'old tdd');
+});
+
+test('preserves unrelated root permission effects, and repeated installs need no further backups', t => {
+  const project = fixture(t); const file = path.join(project, 'opencode.json');
+  const local = { action: 'shell', resource: 'custom-deploy *', effect: 'deny' };
+  writeFileSync(file, JSON.stringify({ permissions: [{ action: 'shell', resource: '*', effect: 'deny' }, local] }));
+  install({ project });
+  assert.deepEqual(JSON.parse(read(file)).permissions, [local]);
+  assert.deepEqual(configuration(project).permissions.at(-1), local);
+  const again = install({ project });
+  assert.deepEqual(again.changes, []); assert.equal(again.backupDirectory, null);
+});
+
+test('replacement preserves restrictive config permissions and protects backups', { skip: process.platform === 'win32' }, t => {
+  const project = fixture(t); mkdirSync(path.join(project, '.opencode'));
+  const file = path.join(project, '.opencode/opencode.json'); writeFileSync(file, '{}'); chmodSync(file, 0o600);
+  const result = install({ project });
+  assert.equal(statSync(file).mode & 0o777, 0o600);
+  assert.equal(statSync(path.join(result.backupDirectory, '.opencode/opencode.json')).mode & 0o777, 0o600);
+  assert.equal(statSync(result.backupDirectory).mode & 0o777, 0o700);
+});
+
+test('symlinked backup directories abort before replacing files', { skip: process.platform === 'win32' }, t => {
+  const project = fixture(t); const external = fixture(t); mkdirSync(path.join(project, '.opencode/agents'), { recursive: true });
+  symlinkSync(external, path.join(project, '.opencode/.toolkit-backups'), 'dir');
+  const file = path.join(project, '.opencode/agents/manager.md'); writeFileSync(file, 'keep until backup succeeds');
+  assert.throws(() => install({ project }), /symlink/);
+  assert.equal(read(file), 'keep until backup succeeds'); assert.deepEqual(readdirSync(external), []);
 });

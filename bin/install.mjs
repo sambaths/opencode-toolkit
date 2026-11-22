@@ -6,7 +6,7 @@ try {
   const args = process.argv.slice(2);
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--help' || args[i] === '-h') {
-      console.log('Usage: opencode-toolkit [--project <directory>] [--dry-run]\nInstalls project-local agents and commands. Existing conflicts are never overwritten.');
+      console.log('Usage: opencode-toolkit [--project <directory>] [--dry-run]\nReplaces matching project-local toolkit files and definitions, with backups. Unrelated files/settings are retained.');
       process.exit(0);
     } else if (args[i] === '--dry-run') options.dryRun = true;
     else if (args[i] === '--project' && args[i + 1] && !args[i + 1].startsWith('--')) options.project = args[++i];
@@ -16,6 +16,7 @@ try {
   console.log(`${result.dryRun ? 'DRY RUN' : 'Installed'}: ${result.project}`);
   for (const file of result.changes) console.log(`  ${file}`);
   if (!result.changes.length) console.log('Already up to date.');
+  if (result.backupDirectory) console.log(`Backup: ${result.backupDirectory}`);
   console.log('Review the shared shell policy. OpenCode reloads configuration automatically; use /reload if needed.');
 } catch (error) {
   console.error(`Installation failed: ${error.message}`);
