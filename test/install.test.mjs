@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, symlinkSync, rmSync, readdirSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, symlinkSync, rmSync, readdirSync, cpSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { install, mergeConfig, assertSafePath, parseConfig } from '../lib/install.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const cli = path.join(root, 'bin/install.mjs');
@@ -123,4 +124,72 @@ test('package export has no project history, plugins, credentials or machine-spe
     assert.equal(existsSync(path.join(root, 'bundle', file)), false, file);
   }
   assert.doesNotMatch(JSON.stringify(config), /disciple|100\.126|\/home\//);
+});
+
+test('managed updates replace pristine files and old rules without duplicate matchers', t => {
+  const project = fixture(t); const parent = fixture(t); const bundle = path.join(parent, 'bundle');
+  cpSync(path.join(root, 'bundle'), bundle, { recursive: true });
+  install({ project, bundle });
+  const file = path.join(bundle, 'agents/manager.md'); writeFileSync(file, `${read(file)}\nUpdated guidance.\n`);
+  const configFile = path.join(bundle, 'opencode.json'); const incoming = JSON.parse(read(configFile));
+  incoming.permissions.find(rule => rule.action === 'shell' && rule.resource === 'git push *').effect = 'deny';
+  writeFileSync(configFile, JSON.stringify(incoming));
+  install({ project, bundle });
+  assert.match(read(path.join(project, '.opencode/agents/manager.md')), /Updated guidance/);
+  const rules = configuration(project).permissions.filter(rule => rule.action === 'shell' && rule.resource === 'git push *');
+  assert.equal(rules.length, 1); assert.equal(rules[0].effect, 'deny');
+});
+
+test('JSON and legacy Markdown role collisions fail before writing', t => {
+  const project = fixture(t); mkdirSync(path.join(project, '.opencode'));
+  const file = path.join(project, '.opencode/opencode.json');
+  writeFileSync(file, JSON.stringify({ agents: { manager: { mode: 'primary' } } }));
+  assert.match(run('--project', project).stderr, /conflict/i);
+  writeFileSync(file, '{}'); mkdirSync(path.join(project, '.opencode/command'));
+  writeFileSync(path.join(project, '.opencode/command/plan.md'), 'local plan');
+  assert.match(run('--project', project).stderr, /Legacy definition conflict/);
+});
+
+test('parsing, path and schema boundary validation rejects invalid inputs', t => {
+  const project = fixture(t);
+  assert.throws(() => assertSafePath(project, path.dirname(project)), /escapes/);
+  assert.throws(() => parseConfig('null', 'test'), /Invalid/);
+  const incoming = { agents: {}, experimental: {}, instructions: [], permissions: [] };
+  for (const existing of [{ agents: [] }, { experimental: 1 }, { instructions: {} }, { permissions: {} }]) {
+    assert.throws(() => mergeConfig(existing, incoming), /Invalid/);
+  }
+  assert.throws(() => mergeConfig({ permissions: [null] }, { ...incoming, permissions: [{ action: 'shell', resource: '*', effect: 'allow' }] }), /Invalid/);
+  assert.throws(() => mergeConfig({ experimental: { subagent_depth: 3 } }, { ...incoming, experimental: { subagent_depth: 1 } }), /conflict/);
+  mkdirSync(path.join(project, '.opencode')); writeFileSync(path.join(project, '.opencode/toolkit-manifest.json'), '{"format":99}');
+  assert.match(run('--project', project).stderr, /Unsupported/);
+});
+
+test('unrelated edits to existing JSONC maps survive updates', t => {
+  const project = fixture(t); mkdirSync(path.join(project, '.opencode'));
+  const file = path.join(project, '.opencode/opencode.jsonc');
+  writeFileSync(file, '{"agents": {\n // preserve local role\n "local-helper": {"mode":"subagent"}\n}, "experimental": {"todo":true}}');
+  install({ project });
+  assert.match(read(file), /preserve local role/);
+  assert.match(read(file), /local-helper/);
+  assert.equal(run('--project', project).status, 0);
+});
+
+test('respects direct project config defaults and refuses root role/policy conflicts', t => {
+  const project = fixture(t); const file = path.join(project, 'opencode.json');
+  const original = JSON.stringify({ default_agent: 'build', model: 'local/model' });
+  writeFileSync(file, original);
+  assert.equal(run('--project', project).status, 0);
+  assert.equal(configuration(project).default_agent, 'build');
+  assert.equal(read(file), original);
+  const conflict = fixture(t);
+  writeFileSync(path.join(conflict, 'opencode.json'), JSON.stringify({ agents: { manager: { mode: 'primary' } } }));
+  assert.match(run('--project', conflict).stderr, /conflict/i);
+  assert.equal(existsSync(path.join(conflict, '.opencode')), false);
+});
+
+test('adopts an identical pre-existing shared policy without false conflicts', t => {
+  const project = fixture(t); mkdirSync(path.join(project, '.opencode'));
+  cpSync(path.join(root, 'bundle/opencode.json'), path.join(project, '.opencode/opencode.json'));
+  const result = run('--project', project);
+  assert.equal(result.status, 0, result.stderr);
 });
