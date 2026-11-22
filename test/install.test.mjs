@@ -89,7 +89,7 @@ test('updates replace locally modified managed files with a recoverable backup',
   assert.equal(read(path.join(result.backupDirectory, '.opencode/agents/manager.md')), 'customized');
 });
 
-test('replaces matching permission rules and preserves unrelated specific rules', t => {
+test('preserves stricter matching permission rules and unrelated specific rules', t => {
   const project = fixture(t); mkdirSync(path.join(project, '.opencode'));
   const file = path.join(project, '.opencode/opencode.json');
   const localRule = { action: 'shell', resource: 'custom-deploy *', effect: 'deny' };
@@ -97,7 +97,7 @@ test('replaces matching permission rules and preserves unrelated specific rules'
   writeFileSync(file, original);
   const result = install({ project });
   const rules = configuration(project).permissions;
-  assert.deepEqual(rules.filter(r => r.action === 'shell' && r.resource === '*'), [{ action: 'shell', resource: '*', effect: 'allow' }]);
+  assert.deepEqual(rules.filter(r => r.action === 'shell' && r.resource === '*'), [{ action: 'shell', resource: '*', effect: 'deny' }]);
   assert.deepEqual(rules.at(-1), localRule);
   assert.equal(read(path.join(result.backupDirectory, '.opencode/opencode.json')), original);
 });
@@ -228,7 +228,7 @@ test('preserves unrelated root permission effects, and repeated installs need no
   const local = { action: 'shell', resource: 'custom-deploy *', effect: 'deny' };
   writeFileSync(file, JSON.stringify({ permissions: [{ action: 'shell', resource: '*', effect: 'deny' }, local] }));
   install({ project });
-  assert.deepEqual(JSON.parse(read(file)).permissions, [local]);
+  assert.deepEqual(JSON.parse(read(file)).permissions, [{ action: 'shell', resource: '*', effect: 'deny' }, local]);
   assert.deepEqual(configuration(project).permissions.at(-1), local);
   const again = install({ project });
   assert.deepEqual(again.changes, []); assert.equal(again.backupDirectory, null);
@@ -249,4 +249,126 @@ test('symlinked backup directories abort before replacing files', { skip: proces
   const file = path.join(project, '.opencode/agents/manager.md'); writeFileSync(file, 'keep until backup succeeds');
   assert.throws(() => install({ project }), /symlink/);
   assert.equal(read(file), 'keep until backup succeeds'); assert.deepEqual(readdirSync(external), []);
+});
+
+// Representative last-match checks, not an OpenCode policy evaluator.
+const shellDecision = (rules, command) => rules.reduce((effect, rule) => {
+  const pattern = new RegExp(`^${rule.resource.split('*').map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`);
+  return rule.action === 'shell' && pattern.test(command) ? rule.effect : effect;
+}, undefined);
+
+test('preserves overlapping ordered rules including repeated matchers across root and local', t => {
+  const project = fixture(t); mkdirSync(path.join(project, '.opencode'));
+  const deny = { action: 'shell', resource: '*', effect: 'deny' };
+  const allow = { action: 'shell', resource: 'git *', effect: 'allow' };
+  const rules = [deny, allow, deny];
+  writeFileSync(path.join(project, 'opencode.json'), JSON.stringify({ permissions: rules }));
+  writeFileSync(path.join(project, '.opencode/opencode.json'), JSON.stringify({ permissions: [allow, deny] }));
+  install({ project });
+  for (const command of ['git status', 'git push origin main', 'cat README.md']) {
+    assert.equal(shellDecision(configuration(project).permissions, command), 'deny');
+  }
+  assert.deepEqual(configuration(project).permissions.slice(-5), [...rules, allow, deny]);
+  assert.deepEqual(install({ project }).changes, []);
+  // An independently edited local rule equal to a root rule is not stripped.
+  const file = path.join(project, '.opencode/opencode.json'); const config = configuration(project);
+  config.permissions.push(allow, deny); writeFileSync(file, JSON.stringify(config));
+  install({ project });
+  assert.equal(shellDecision(configuration(project).permissions, 'git push origin main'), 'deny');
+  assert.deepEqual(install({ project }).changes, []);
+});
+
+test('exact matcher effects never weaken deny to ask or ask to allow', () => {
+  const incoming = { agents: {}, experimental: {}, instructions: [], permissions: [{ action: 'shell', resource: '*', effect: 'allow' }] };
+  for (const effect of ['ask', 'deny']) {
+    const rules = [{ action: 'shell', resource: '*', effect }];
+    assert.equal(mergeConfig({ permissions: rules }, incoming).permissions[0].effect, effect);
+  }
+  incoming.permissions[0].effect = 'ask';
+  assert.equal(mergeConfig({ permissions: [{ action: 'shell', resource: '*', effect: 'deny' }] }, incoming).permissions[0].effect, 'deny');
+});
+
+test('an existing matching broad allow does not move after and erase incoming approval safeguards', t => {
+  const project = fixture(t);
+  writeFileSync(path.join(project, 'opencode.json'), JSON.stringify({ permissions: [{ action: 'shell', resource: '*', effect: 'allow' }] }));
+  install({ project });
+  assert.equal(shellDecision(configuration(project).permissions, 'git push origin main'), 'ask');
+  assert.equal(shellDecision(configuration(project).permissions, 'git status'), 'allow');
+  assert.deepEqual(install({ project }).changes, []);
+});
+
+test('conflicting restrictive agent migrations fail before writes, for root/local JSON and Markdown', t => {
+  const definition = { permissions: [{ action: 'shell', resource: '*', effect: 'deny' }] };
+  for (const location of ['opencode.json', '.opencode/opencode.json', '.opencode/agents/manager.md', '.opencode/agent/build.md']) {
+    const project = fixture(t); const file = path.join(project, location); mkdirSync(path.dirname(file), { recursive: true });
+    const original = location.endsWith('.md') ? '---\npermissions:\n  - action: shell\n    resource: "*"\n    effect: deny\n---\ncustom role\n' : JSON.stringify({ agents: { manager: definition } });
+    writeFileSync(file, original);
+    assert.throws(() => install({ project }), /Restrictive agent permission migration/);
+    assert.equal(read(file), original);
+    assert.equal(existsSync(path.join(project, '.opencode/toolkit-manifest.json')), false);
+    assert.equal(existsSync(path.join(project, '.opencode/.toolkit-backups')), false);
+  }
+});
+
+test('skill collision fails before writes; managed skills update with backups; unrelated skills/state survive', t => {
+  const source = fixture(t); const bundle = path.join(source, 'bundle');
+  cpSync(path.join(root, 'bundle'), bundle, { recursive: true });
+  const relative = 'skills/toolkit-fixture/SKILL.md';
+  mkdirSync(path.dirname(path.join(bundle, relative)), { recursive: true });
+  writeFileSync(path.join(bundle, relative), '---\nname: Toolkit Fixture\ndescription: Test fixture\n---\nSafe source');
+  const project = fixture(t); const collision = path.join(project, '.opencode', relative);
+  mkdirSync(path.dirname(collision), { recursive: true }); writeFileSync(collision, 'unrelated content with same ID');
+  assert.throws(() => install({ project, bundle }), /Unmanaged skill collision/);
+  assert.equal(read(collision), 'unrelated content with same ID');
+  assert.equal(existsSync(path.join(project, '.opencode/opencode.json')), false);
+  assert.equal(existsSync(path.join(project, '.opencode/.toolkit-backups')), false);
+  rmSync(path.dirname(collision), { recursive: true });
+  const unrelated = path.join(project, '.opencode/skills/my-skill/SKILL.md');
+  mkdirSync(path.dirname(unrelated), { recursive: true }); writeFileSync(unrelated, 'keep my skill');
+  mkdirSync(path.join(project, '.toolkit-state')); writeFileSync(path.join(project, '.toolkit-state/state.json'), 'do not touch runtime state');
+  install({ project, bundle });
+  writeFileSync(collision, 'customized managed skill');
+  const result = install({ project, bundle });
+  assert.equal(read(path.join(result.backupDirectory, '.opencode', relative)), 'customized managed skill');
+  assert.equal(read(unrelated), 'keep my skill');
+  assert.equal(read(path.join(project, '.toolkit-state/state.json')), 'do not touch runtime state');
+  assert.deepEqual(install({ project, bundle }).changes, []);
+});
+
+test('curated skills and local ledger ship in the package file allowlist and install', t => {
+  const project = fixture(t); install({ project });
+  const manifest = JSON.parse(read(path.join(root, 'package.json')));
+  assert.ok(manifest.files.includes('bundle/'));
+  for (const id of ['toolkit-grilling', 'toolkit-handoff', 'toolkit-questionnaire', 'toolkit-diagnosing-bugs', 'toolkit-tdd', 'toolkit-retro']) {
+    assert.ok(existsSync(path.join(project, '.opencode/skills', id, 'SKILL.md')), id);
+  }
+  assert.ok(existsSync(path.join(project, '.opencode/tools/task-state.mjs')));
+  assert.ok(existsSync(path.join(project, '.opencode/tools/task-state.md')));
+  assert.ok(existsSync(path.join(project, '.opencode/skills/LICENSE.mattpocock.txt')));
+  assert.ok(existsSync(path.join(project, '.opencode/skills/provenance.json')));
+});
+
+test('unmanaged skill metadata is not overwritten on first install', t => {
+  const project = fixture(t); const file = path.join(project, '.opencode/skills/provenance.json');
+  mkdirSync(path.dirname(file), { recursive: true }); writeFileSync(file, 'unrelated metadata');
+  assert.throws(() => install({ project }), /Unmanaged skill metadata collision/);
+  assert.equal(read(file), 'unrelated metadata');
+  assert.equal(existsSync(path.join(project, '.opencode/toolkit-manifest.json')), false);
+});
+
+test('explicit source export includes curated license/content but excludes unrelated skills and runtime state', t => {
+  const project = fixture(t); install({ project });
+  mkdirSync(path.join(project, '.opencode/skills/unrelated'), { recursive: true });
+  writeFileSync(path.join(project, '.opencode/skills/unrelated/SKILL.md'), 'unrelated skill');
+  mkdirSync(path.join(project, '.opencode/.toolkit-state'));
+  writeFileSync(path.join(project, '.opencode/.toolkit-state/state.json'), 'private runtime history');
+  const exporter = fixture(t); mkdirSync(path.join(exporter, 'scripts'));
+  cpSync(path.join(root, 'scripts/export.mjs'), path.join(exporter, 'scripts/export.mjs'));
+  const result = spawnSync(process.execPath, [path.join(exporter, 'scripts/export.mjs'), path.join(project, '.opencode')], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(existsSync(path.join(exporter, 'bundle/skills/toolkit-retro/SKILL.md')));
+  assert.ok(existsSync(path.join(exporter, 'bundle/skills/LICENSE.mattpocock.txt')));
+  assert.ok(existsSync(path.join(exporter, 'bundle/skills/provenance.json')));
+  assert.equal(existsSync(path.join(exporter, 'bundle/skills/unrelated')), false);
+  assert.equal(existsSync(path.join(exporter, 'bundle/.toolkit-state')), false);
 });

@@ -6,11 +6,11 @@ Raise agent completion quality by improving harness configuration, not by rewrit
 
 ## Workflow
 
-1. Run `/harness-audit` and collect baseline score.
-2. Identify top 3 leverage areas (hooks, evals, routing, context, safety).
-3. Propose minimal, reversible configuration changes.
-4. Apply changes and run validation.
-5. Report before/after deltas.
+1. Inspect the harness using `/harness-audit` criteria. Collect severity-ranked static findings, not an invented numeric baseline score; a command invocation is not proof an audit ran.
+2. Establish the user's acceptance criteria, scope, task-appropriate baseline, verification, and bounded repair/step limits. Use existing measured evals only when applicable and available; distinguish supplied outcome manifests from live model evaluations.
+3. Propose minimal reversible changes. An audit is read-only: stop after evaluation unless implementation is separately authorized.
+4. When changes are authorized, apply only within scope and permissions, validate, and checkpoint actual evidence. Stop on acceptance, exhausted budget, two checkpoints without progress, or new scope/approval needs. Default to at most two repair attempts for the same failure.
+5. Report observed before/after evidence and limitations; do not infer model-quality improvements from static checks. Do not persist lessons/checkpoints or activate candidates without explicit opt-in and manual acceptance.
 
 ## Constraints
 
@@ -21,7 +21,7 @@ Raise agent completion quality by improving harness configuration, not by rewrit
 
 ## Output
 
-- baseline: overall_score/max_score + category scores (e.g., security_score, cost_score) + top_actions
-- applied changes: top_actions (array of action objects)
-- measured improvements: category score deltas using same category keys
-- remaining_risks: clear list of remaining risks
+- Baseline: concrete findings and applicable measurements with provenance.
+- Changes: proposed versus authorized/applied, clearly distinguished.
+- Verification: exact checks/results and comparable measurements, if actually run.
+- Remaining risks, missing evidence, and stop/checkpoint reason.

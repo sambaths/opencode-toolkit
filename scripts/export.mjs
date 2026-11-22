@@ -19,8 +19,19 @@ const files = [
   ...commands.map(f => `commands/${f}.md`),
   'instructions/INSTRUCTIONS.md', 'tools/evaluate-skill.mjs',
   'tools/evaluate-skill.test.mjs', 'tools/harness-config.test.mjs',
+  'tools/task-state.mjs', 'tools/task-state.test.mjs', 'tools/task-state.md',
+  'skills/LICENSE.mattpocock.txt', 'skills/provenance.json',
   ...[...JSON.stringify(config).matchAll(/\{file:([^}]+)\}/g)].map(m => m[1]),
 ];
+const curatedSkills = ['toolkit-grilling', 'toolkit-handoff', 'toolkit-questionnaire', 'toolkit-diagnosing-bugs', 'toolkit-tdd', 'toolkit-retro'];
+function skillFiles(relative) {
+  return readdirSync(path.join(source, relative), { withFileTypes: true }).flatMap(entry => {
+    if (entry.isSymbolicLink() || (!entry.isFile() && !entry.isDirectory())) throw new Error(`Unsupported skill entry: ${relative}/${entry.name}`);
+    const name = path.join(relative, entry.name);
+    return entry.isDirectory() ? skillFiles(name) : [name];
+  });
+}
+for (const id of curatedSkills) files.push(...skillFiles(`skills/${id}`));
 for (const relative of new Set(files)) {
   const output = path.join(destination, relative);
   mkdirSync(path.dirname(output), { recursive: true });

@@ -1,0 +1,47 @@
+{
+  "repository": "https://github.com/mattpocock/skills",
+  "commit": "abeeaf95660ba9e8b7c753eb38f441ca707a8823",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2026 Matt Pocock",
+  "licenseSource": "LICENSE",
+  "licenseFile": "LICENSE.mattpocock.txt",
+  "runtimeDependencies": [],
+  "skills": [
+    {
+      "id": "toolkit-grilling",
+      "file": "toolkit-grilling/SKILL.md",
+      "sources": ["skills/productivity/grilling/SKILL.md"],
+      "adaptations": ["Bound dependency-aware rounds", "Inspect facts before questions", "Routine autonomous judgment; wait for material choices", "Manager-only coordination; no mandatory fresh-context child", "Decision acceptance does not expand authorization"]
+    },
+    {
+      "id": "toolkit-handoff",
+      "file": "toolkit-handoff/SKILL.md",
+      "sources": ["skills/productivity/handoff/SKILL.md"],
+      "adaptations": ["Model-discoverable continuity trigger", "Response-first delivery", "Configured or explicitly authorized persistence only", "Evidence, scope, budgets, and next action; references over duplication"]
+    },
+    {
+      "id": "toolkit-questionnaire",
+      "file": "toolkit-questionnaire/SKILL.md",
+      "sources": ["skills/productivity/to-questionnaire/SKILL.md"],
+      "adaptations": ["Autonomous drafting only for human knowledge gaps or explicit request", "Recipient and required outcomes", "Prioritized single-topic answer stubs and partial answers", "No automatic save or send"]
+    },
+    {
+      "id": "toolkit-diagnosing-bugs",
+      "file": "toolkit-diagnosing-bugs/SKILL.md",
+      "sources": ["skills/engineering/diagnosing-bugs/SKILL.md"],
+      "adaptations": ["Exact-symptom loop and minimized reproduction", "Ranked falsifiable hypotheses and targeted probes", "Inline human trial protocol; omit scripts/hitl-loop.template.sh", "Preserve diagnosis-only scope", "Bound operational probes and require applicable authorization; silence is not consent"]
+    },
+    {
+      "id": "toolkit-tdd",
+      "file": "toolkit-tdd/SKILL.md",
+      "sources": ["skills/engineering/tdd/SKILL.md", "skills/engineering/tdd/tests.md", "skills/engineering/tdd/mocking.md"],
+      "adaptations": ["Inline test quality and mocking guidance", "Vertical behavior slices and observed red before green", "Independent expected results", "Existing framework and autonomous obvious seam choices", "Remove mandatory external codebase-design/code-review calls; manager owns independent review"]
+    },
+    {
+      "id": "toolkit-retro",
+      "file": "toolkit-retro/SKILL.md",
+      "sources": ["skills/engineering/retro/SKILL.md"],
+      "adaptations": ["Automatic manager reflection only with project learning opt-in", "Verified authorized evidence only", "Separate observation, candidate, evaluation, and promotion", "Response-first proposals and consent-bound persistence", "No automatic policy edits or permission widening", "Inline writing guidance without mandatory external skill"]
+    }
+  ]
+}

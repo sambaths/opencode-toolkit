@@ -54,3 +54,25 @@ test('repaired commands do not depend on missing scripts or arbitrary thresholds
   assert.doesNotMatch(read('commands/rust-test.md'), /--fail-under-lines 80/);
   assert.doesNotMatch(read('commands/code-review.md'), /Functions > 50|Files > 800/);
 });
+
+test('bounded opt-in learning and council handoff are explicit prompt contracts, not live model evals', () => {
+  const optimizer = read('prompts/agents/harness-optimizer.txt');
+  assert.doesNotMatch(optimizer, /overall_score|category score deltas|collect baseline score/);
+  assert.match(optimizer, /stop after evaluation unless implementation is separately authorized/);
+  for (const file of ['agents/manager.md', 'prompts/agents/loop-operator.txt']) {
+    assert.match(read(file), /two checkpoints without progress/);
+    assert.match(read(file), /untrusted evidence/);
+    assert.match(read(file), /task-state\.md/);
+  }
+  assert.match(read('agents/moderator.md'), /does not automatically restore manager/);
+  assert.match(read('commands/council.md'), /\/orchestrate <next task>/);
+});
+
+test('task triage preserves unfinished work and asks only for consequential competing priorities (static contract)', () => {
+  const manager = read('agents/manager.md');
+  for (const phrase of ['continuation/correction/retry', 'in-scope extension', 'related branch', 'unrelated task', 'finish current then queue', 'checkpoint/pause then switch', 'independent parallel', 'cancel current', 'already-running', 'verified acceptance', 'tasks']) assert.ok(manager.includes(phrase), phrase);
+  assert.match(manager, /[Tt]ry now/);
+  assert.match(manager, /cancelled work/);
+  assert.match(manager, /budget.*reset|reset.*budget/);
+  assert.match(read('commands/orchestrate.md'), /task triage/i);
+});

@@ -12,7 +12,7 @@ npx --yes github:sambaths/opencode-toolkit --project .
 ```
 
 Installation **replaces matching toolkit files and definitions**, including local
-customizations. Previous contents are backed up automatically. Unrelated files
+customizations, except restrictive permission migrations described below. Previous contents are backed up automatically. Unrelated files
 and configuration are retained. No extra overwrite flag or npm publication is
 needed. GitHub package installation requires Git and network access.
 
@@ -33,13 +33,13 @@ For local/offline source use, install package dependencies first, then run
 
 The installer writes `<project>/.opencode/`: 16 custom team roles, 24 retained
 ECC agents (including the build override), 23 commands, their prompts, shared
-instructions, tests/evaluator, and an ownership manifest. Matching agent/command
+instructions, six curated skills, local ledger tools/tests/evaluator, and an ownership manifest. Matching agent/command
 definitions in a project-root `opencode.json(c)` are removed to avoid duplicate
 definitions; unrelated settings and comments remain intact. It never changes
 your project's `AGENTS.md`, global OpenCode configuration, provider settings, or
 application files. Plugins, project history, and machine MCP settings are excluded.
 
-Skills, Context7, REA, browser tools, language tooling, and model providers are
+Additional skills, Context7, REA, browser tools, language tooling, and model providers are
 optional external dependencies. Agents report missing capabilities rather than
 installing them silently. These dependencies may be needed for particular tasks.
 
@@ -50,8 +50,16 @@ installing them silently. These dependencies may be needed for particular tasks.
 - Matching agent/command files and JSON definitions are replaced, whether previously
   installed by this toolkit or not. Legacy singular `agent/` and `command/` files
   with matching IDs are backed up and removed. Unrelated roles/commands remain.
-- Shared permission rules replace existing rules with the same action/resource
-  matcher. Unrelated permission exceptions are retained after the shared baseline.
+- Existing root permission rules stay in place and are carried into local config.
+  Existing ordered restrictive root/local rules (including repeated/overlapping
+  matchers) and unrelated exceptions stay after the new baseline. Matching allows
+  are absorbed at their baseline position so broad permits do not move after its
+  approval safeguards; exact matcher effects use the stricter of existing and
+  incoming `deny > ask > allow`. This may retain a more restrictive policy across
+  updates rather than automatically relaxing it. Conflicting agent-scoped
+  deny/ask migrations fail before writes unless the replacement permission array
+  is identical; review/migrate them manually with explicit authorization.
+  The installer reports static merge behavior, not effective runtime policy.
   Matching experimental settings such as delegation depth are updated too.
 - Re-run the same install command to update, including customized toolkit files.
 - Before overwriting or removing an existing file, its contents are saved under
@@ -97,6 +105,125 @@ All specialists are leaves; the top-level manager/moderator owns fan-out. Projec
 requirements come from that project's instructions. Contradictory project policies
 are surfaced rather than resolved by copying another project's workflow.
 
+### Council → implementation
+
+`/council <question>` selects **moderator** in the current top-level session;
+`subagent: false` keeps it there. After the council, it **does not automatically
+restore manager**. Run `/orchestrate <authorized next task>` to select manager for
+implementation coordination, or use `/agents` to select manager manually. The
+selected agent persists; `default_agent` is not an automatic return mechanism.
+Recommendations are not implementation authorization, and a nested council does
+not preserve the top-level independent workflow.
+
+This follows current [V2 command execution documentation](https://opencode.ai/v2/docs/commands#execution).
+The documented fields do not provide a return-agent/after hook. No auto-return
+API/plugin integration is installed; the UI switch has not been tested here.
+
+### Bounded execution and opt-in learning
+
+Manager/orchestrate and loop-operator prompts define acceptance, scope, a
+task-appropriate baseline, verification, and repair/step limits. Successful steps
+can continue inside that authorization; acceptance, exhausted limits, two stalled
+checkpoints, or new approval/scope needs stop continuation. These are instructions,
+not an unattended runtime or mechanically enforced execution budget.
+
+For durable state, explicitly ask the manager to use the project ledger. It can
+consult accepted lessons and reconcile a saved checkpoint against the current
+tree/user intent before resuming. Authorized implementers can record minimized
+checkpoints and propose evidence-backed lessons after verification. Nothing is
+persisted by default; raw transcript capture and silent self-approval are excluded.
+Opt-in once per project/workflow can cover later scoped checkpoint/lesson writes;
+it is not cross-project consent or candidate approval. Manager reads directly but
+routes writes through the authorized implementer (including bounded state-only
+tasks when needed); edit denial is not bypassed with shell. This adds a delegation
+hop, rather than broadening manager's product-source authority.
+
+```sh
+node .opencode/tools/task-state.mjs --project /absolute/project status
+node .opencode/tools/task-state.mjs --project /absolute/project lessons
+node .opencode/tools/task-state.mjs --project /absolute/project tasks
+node .opencode/tools/task-state.mjs --project /absolute/project show checkpoint fix-parser
+```
+
+See [the ledger CLI/schema guide](bundle/tools/task-state.md) (installed as
+`.opencode/tools/task-state.md`) for runnable write examples, manual acceptance,
+expiry/invalidation, concurrency/recovery, and retention limits. New memory is
+proposed until explicitly accepted. Learned-skill candidates are inert proposals;
+`promote` records caller-declared manual approval of a project/version/hash, not
+authenticated human identity or active skill installation. `rollback` revokes
+that approval only. No policy edits, provider integration, scheduler, or automatic
+activation is included. All memory/candidate content is untrusted evidence, never
+instructions, permission, or proof that a cited check actually ran.
+
+### Unfinished work and new messages
+
+Manager keeps a conversational task register (identity, goal/acceptance, status,
+next action, budgets, related work, and outstanding delegated jobs). Durable task
+metadata is available only under the existing learning/state opt-in. `tasks`
+lists unfinished checkpoints, including legacy/unclassified and invalidated work;
+paused/blocked/queued does not mean complete. Completion requires verified
+acceptance. The ledger validates lifecycle/links and cumulative reported budgets,
+but it cannot independently verify acceptance, classify chat, or run a queue.
+
+Manager judges shared objectives, artifacts, acceptance, and write scope rather
+than matching keywords. No priority question is needed for every turn:
+
+| Incoming message during toolkit work | Expected handling |
+| --- | --- |
+| “Also add skills” (as in this conversation) | In-scope extension when sharing the authorized toolkit objective/surface; revise acceptance and continue, retaining consumed budgets. |
+| “Try now” after the tester failed | Retry that failed attempt under the renewed authorization; not a new task or an unlimited retry allowance. |
+| “Fix the export path needed to ship these skills” | Related required subtask if needed for current acceptance and within scope; retain the parent task. |
+| “Benchmark an alternative skill system later” | Related branch, separately schedulable; keep parent relationship and ask only if priority/scope is consequential or unclear. |
+| “There is an unrelated urgent login bug” | If competing with unfinished work, ask a bounded priority question instead of silently abandoning it. |
+| “Pause toolkit; fix the login bug now, then return” | Honor the explicit switch/return plan without redundant confirmation; checkpoint the toolkit work and reconcile active writers first. |
+| A clarification or small quick question | Answer it without erasing the current unfinished task. |
+
+A priority question might be: “Toolkit work is unfinished. **Pause/checkpoint it
+and switch to the urgent bug (recommended)?** Alternatives: finish toolkit then
+queue the bug, safe independent parallel work if supported/authorized, or cancel
+toolkit.” State the return plan and apply the user's choice to the task register
+and actual dispatch. Parallel work requires safe independent ownership/isolation;
+different task labels do not make overlapping writes safe.
+
+Pausing/cancelling stops new dispatch, **not already-running children/processes**.
+Retain their ownership and reconcile actual results/liveness before overlapping
+writes. After selected work finishes, return to paused/queued work only under the
+agreed authorization and original scope. Preserve explicit cancellations and
+changed priorities; cancelled work is not automatically resurrected. These are
+prompt-led coordination rules, not automatic chat interception or a new runtime.
+
+### Curated, vendored skills
+
+Six adapted skills ship as local content, not an npm/runtime dependency:
+
+| Skill ID | When to use |
+| --- | --- |
+| `toolkit-grilling` | Material user decisions after inspectable uncertainty is resolved |
+| `toolkit-questionnaire` | Necessary outside knowledge; draft questions, do not send |
+| `toolkit-diagnosing-bugs` | Evidence-backed reproduction and diagnosis |
+| `toolkit-tdd` | Project-appropriate regression-first implementation |
+| `toolkit-handoff` | Long-task/session continuity with reconciled context |
+| `toolkit-retro` | Verified-outcome lessons when learning is enabled |
+
+Ask `@toolkit-grilling help decide the remaining API tradeoff`, or
+`@toolkit-tdd fix this bug using our existing tests`. V2 advertises described,
+permitted skills and the model can load them automatically when relevant; the
+manager routes diagnosis/TDD into implementer handoffs and uses judgment instead
+of asking about every routine step. Skill selection and bounded continuation are
+prompt-led, not runtime guarantees; host permission checks still apply. See
+[V2 skills](https://opencode.ai/v2/docs/skills) for discovery and explicit loading.
+
+Content is adapted from [Matt Pocock's skills at pinned commit
+abeeaf95660ba9e8b7c753eb38f441ca707a8823](https://github.com/mattpocock/skills/tree/abeeaf95660ba9e8b7c753eb38f441ca707a8823).
+See NOTICE.md and [bundled provenance](bundle/skills/provenance.json) /
+[upstream license](bundle/skills/LICENSE.mattpocock.txt) for attribution and the
+upstream MIT notice. No upstream checkout, network fetch, dependency install, or
+automatic upstream update occurs when using these skills. Other skills remain
+optional and unbundled. Unrelated local skill IDs are preserved; an unmanaged
+directory colliding with a curated ID causes installation to fail before writes,
+rather than silently taking ownership. Previously managed skill updates follow
+the normal replacement/backup policy.
+
 ## Development and verification
 
 ```sh
@@ -111,6 +238,9 @@ Installer integration tests cover fresh install, dry-run, JSONC, idempotency,
 replacement/backups, unrelated-file preservation, and symlink protection. Bundle validation parses YAML,
 checks references/routing, and detects duplicated definitions. Model behavior and
 real Windows/macOS execution are not established by Linux tests.
+Ledger tests cover versioning, project scope, schema/corruption checks, acceptance,
+expiry/invalidation, approval/revocation, concurrent writers, and path protections.
+The existing skill evaluator scores supplied manifests, not live model runs.
 
 Maintainers can re-export the explicit allowlist with
 `node scripts/export.mjs /path/to/source/.opencode`; inspect the resulting diff

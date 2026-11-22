@@ -17,6 +17,7 @@ try {
   for (const file of result.changes) console.log(`  ${file}`);
   if (!result.changes.length) console.log('Already up to date.');
   if (result.backupDirectory) console.log(`Backup: ${result.backupDirectory}`);
+  console.log(result.permissionReview);
   console.log('Review the shared shell policy. OpenCode reloads configuration automatically; use /reload if needed.');
 } catch (error) {
   console.error(`Installation failed: ${error.message}`);
