@@ -14,6 +14,27 @@ For a substantive planning, research, implementation, or review task:
 
 For simple questions or trivial changes, skip broad repository discovery and avoid unnecessary delegation.
 
+## Plan-first handoff
+
+Before any product, code, or test change, work from a plan authored under the configured thinking tier: the manager directly, or a `planner` the manager assigns. Read-only discovery, reproduction, and diagnosis may establish the plan. Managers normally author routine plans directly; an unnecessary planning child adds latency without improving the handoff. This contract applies to direct `build` work and every coding implementation-capable role. Simple work gets a short plan; every product, code, and test change still starts from one.
+
+A source-grounded plan states:
+
+- goal, scope, and non-goals;
+- affected files and seams;
+- ordered steps and dependencies;
+- acceptance criteria with stable IDs (A1, A2, ...) and expected observable outcomes;
+- baseline and verification commands;
+- risks, assumptions, and a repair limit (default at most two attempts per failure).
+
+The manager authors or obtains the plan before dispatching implementation, then passes the same plan identity, revision, and content (or an accessible authorized source) to every implementer and tester. Children start with fresh context, so pass the actual plan or its authorized source rather than an ID alone. Assign write ownership and map each check to an acceptance ID. When scope changes, the manager replans before more edits.
+
+Implementers check the supplied plan before editing. Plan context that is missing, stale, or conflicts with the request returns to the manager or planner; implementers continue repairs inside the plan's scope and repair limit. A coding model does not author or substitute a replacement plan. In a direct `build` session, ask for a manager/planner plan before the first edit when none is supplied.
+
+Reviewers and testers derive expected results independently from the user's requirements and project facts because the plan can be wrong. They report missing or incorrect plan and acceptance coverage, compare plan, implementation, and tests, and return findings to the manager.
+
+Plans are conversational by default. Save one only when the user or project asks. No tracker, file, or per-step human approval is required. Plan-only requests return the plan and stop.
+
 ## Scope and user intent
 
 - Treat explicit user constraints as controlling: plan-only, no implementation, no Git, no tracking, no delegation, requested tools, and requested output format.

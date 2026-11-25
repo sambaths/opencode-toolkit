@@ -172,6 +172,29 @@ All specialists are leaves; the top-level manager/moderator owns fan-out. Projec
 requirements come from that project's instructions. Contradictory project policies
 are surfaced rather than resolved by copying another project's workflow.
 
+### Plan-first handoff
+
+Before product, code, or test changes, the manager or planner (thinking tier)
+authors a source-grounded plan: goal/scope/non-goals, affected files and seams,
+ordered steps, acceptance IDs, baseline/verification commands, risks/assumptions,
+and a repair limit. The manager passes the same plan identity, revision, and
+content—or its accessible authorized source—to implementers and testers; an ID
+alone is insufficient for fresh child contexts.
+
+Direct `build`, developer/senior-developer, and implementation-capable retained
+roles check the supplied plan before editing and return missing, stale, or
+scope-changing plans to the manager instead of authoring a replacement on the
+coding model. Reviewers and adversarial testers derive expected results
+independently from requirements and project facts, then report plan or acceptance
+gaps. Simple work gets a short plan.
+
+Planning remains conversational unless the user or project asks to save it. No
+tracker, file, or per-step approval gate is added; plan-only requests still stop
+before implementation and Git/tracking. This is a prompt-level handoff contract,
+not a plugin, runtime gate, or automatic enforcement. Static tests check the
+presence and coherence of these instructions; they do not establish model
+compliance or plan quality.
+
 ### Council → implementation
 
 `/council <question>` selects **moderator** in the current top-level session;
