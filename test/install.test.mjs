@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, symlinkSync, rmSync, readdirSync, cpSync, chmodSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -17,6 +18,45 @@ function fixture(t) {
 const run = (...args) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8' });
 const read = file => readFileSync(file, 'utf8');
 const configuration = project => JSON.parse(read(path.join(project, '.opencode/opencode.json')));
+const DEFAULT_PROFILE = { thinking: 'google/gemini-4-hydrogen', coding: 'opencode/deepseek-v4.1-flash' };
+// Independent expected classification: one tier for every shipped role.
+const SHIPPED_TIERS = {
+  'adversarial-tester': 'thinking', architect: 'thinking', developer: 'coding', 'frontend-designer': 'coding',
+  manager: 'thinking', moderator: 'thinking', notetaker: 'thinking', 'performance-engineer': 'thinking',
+  planner: 'thinking', researcher: 'thinking', 'reverse-engineer': 'thinking', reviewer: 'thinking',
+  'senior-developer': 'coding', 'systems-engineer': 'coding', toolsmith: 'thinking', 'tracker-sync': 'thinking',
+  build: 'coding', 'code-reviewer': 'thinking', 'security-reviewer': 'thinking', 'tdd-guide': 'coding',
+  'build-error-resolver': 'coding', 'e2e-runner': 'coding', 'doc-updater': 'coding', 'refactor-cleaner': 'coding',
+  'go-reviewer': 'thinking', 'go-build-resolver': 'coding', 'database-reviewer': 'thinking', 'cpp-reviewer': 'thinking',
+  'cpp-build-resolver': 'coding', 'docs-lookup': 'thinking', 'harness-optimizer': 'coding', 'java-reviewer': 'thinking',
+  'java-build-resolver': 'coding', 'kotlin-reviewer': 'thinking', 'kotlin-build-resolver': 'coding',
+  'loop-operator': 'coding', 'php-reviewer': 'thinking', 'python-reviewer': 'thinking', 'rust-reviewer': 'thinking',
+  'rust-build-resolver': 'coding', plan: 'thinking', general: 'thinking', explore: 'thinking',
+};
+const bundleConfig = () => JSON.parse(read(path.join(root, 'bundle/opencode.json')));
+const customAgentNames = () => readdirSync(path.join(root, 'bundle/agents')).filter(file => file.endsWith('.md')).map(file => file.slice(0, -3));
+const retainedAgentNames = () => Object.keys(bundleConfig().agents ?? {});
+const frontmatter = content => /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(content)?.[1] ?? '';
+const frontmatterModel = content => {
+  const match = /^model:\s*(.+?)\s*$/m.exec(frontmatter(content));
+  return match?.[1].replace(/^['"]|['"]$/g, '');
+};
+const renderedAgent = (name, models = DEFAULT_PROFILE) => read(path.join(root, 'bundle/agents', `${name}.md`))
+  .replace(/^---\r?\n/, `---\nmodel: '${models[SHIPPED_TIERS[name]]}'\n`);
+const anyConfiguration = project => {
+  const json = path.join(project, '.opencode/opencode.json');
+  const jsonc = path.join(project, '.opencode/opencode.jsonc');
+  const file = existsSync(json) ? json : jsonc;
+  return parseConfig(read(file), file);
+};
+function assertAssignments(project, profile) {
+  const config = anyConfiguration(project);
+  for (const name of customAgentNames()) {
+    assert.equal(frontmatterModel(read(path.join(project, '.opencode/agents', `${name}.md`))), profile[SHIPPED_TIERS[name]], name);
+  }
+  for (const name of retainedAgentNames()) assert.equal(config.agents[name].model, profile[SHIPPED_TIERS[name]], name);
+  for (const name of ['plan', 'general', 'explore']) assert.equal(config.agents[name].model, profile[SHIPPED_TIERS[name]], name);
+}
 
 test('fresh project installs agents, config, commands, and required prompt files', t => {
   const project = fixture(t);
@@ -75,7 +115,7 @@ test('replaces matching unmanaged files and backs up their previous contents', t
   writeFileSync(path.join(dir, 'manager.md'), 'my manager');
   writeFileSync(path.join(dir, 'my-helper.md'), 'keep this role');
   const result = install({ project });
-  assert.equal(read(path.join(dir, 'manager.md')), read(path.join(root, 'bundle/agents/manager.md')));
+  assert.equal(read(path.join(dir, 'manager.md')), renderedAgent('manager'));
   assert.equal(read(path.join(dir, 'my-helper.md')), 'keep this role');
   assert.equal(read(path.join(result.backupDirectory, '.opencode/agents/manager.md')), 'my manager');
   assert.equal(read(path.join(project, '.opencode/.toolkit-backups/.gitignore')), '*\n!.gitignore\n');
@@ -85,7 +125,7 @@ test('updates replace locally modified managed files with a recoverable backup',
   const project = fixture(t); assert.equal(run('--project', project).status, 0);
   const file = path.join(project, '.opencode/agents/manager.md'); writeFileSync(file, 'customized');
   const result = install({ project });
-  assert.equal(read(file), read(path.join(root, 'bundle/agents/manager.md')));
+  assert.equal(read(file), renderedAgent('manager'));
   assert.equal(read(path.join(result.backupDirectory, '.opencode/agents/manager.md')), 'customized');
 });
 
@@ -354,6 +394,154 @@ test('unmanaged skill metadata is not overwritten on first install', t => {
   assert.throws(() => install({ project }), /Unmanaged skill metadata collision/);
   assert.equal(read(file), 'unrelated metadata');
   assert.equal(existsSync(path.join(project, '.opencode/toolkit-manifest.json')), false);
+});
+
+test('fresh install assigns the default profile to every shipped role and built-in override', t => {
+  const project = fixture(t);
+  const result = run('--project', project);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Model profile: thinking google\/gemini-4-hydrogen; coding opencode\/deepseek-v4\.1-flash/);
+  assert.match(result.stdout, /availability is not checked/i);
+  assert.match(result.stdout, /No automatic failover/i);
+  assertAssignments(project, DEFAULT_PROFILE);
+  const manifest = JSON.parse(read(path.join(project, '.opencode/toolkit-manifest.json')));
+  assert.deepEqual(manifest.models, DEFAULT_PROFILE);
+  const reviewer = path.join(project, '.opencode/agents/reviewer.md');
+  assert.equal(manifest.files['agents/reviewer.md'], createHash('sha256').update(read(reviewer)).digest('hex'));
+  for (const command of readdirSync(path.join(project, '.opencode/commands')).filter(file => file.endsWith('.md'))) {
+    assert.doesNotMatch(frontmatter(read(path.join(project, '.opencode/commands', command))), /^model:/m, command);
+  }
+});
+
+test('model flags override one tier, persist, and retain the other tier across updates', t => {
+  const project = fixture(t);
+  let result = run('--project', project, '--thinking-model', 'openai/gpt-6.1-sol#high');
+  assert.equal(result.status, 0, result.stderr);
+  assertAssignments(project, { thinking: 'openai/gpt-6.1-sol#high', coding: DEFAULT_PROFILE.coding });
+  assert.deepEqual(JSON.parse(read(path.join(project, '.opencode/toolkit-manifest.json'))).models,
+    { thinking: 'openai/gpt-6.1-sol#high', coding: DEFAULT_PROFILE.coding });
+  result = run('--project', project, '--coding-model', 'vendor/coder#fast');
+  assert.equal(result.status, 0, result.stderr);
+  assertAssignments(project, { thinking: 'openai/gpt-6.1-sol#high', coding: 'vendor/coder#fast' });
+  result = install({ project, thinkingModel: 'google/gemini-4-hydrogen' });
+  assert.equal(result.project, project);
+  assertAssignments(project, { thinking: DEFAULT_PROFILE.thinking, coding: 'vendor/coder#fast' });
+});
+
+test('legacy manifests without a model profile receive defaults on update', t => {
+  const project = fixture(t);
+  install({ project, thinkingModel: 'legacy/thinker', codingModel: 'legacy/coder' });
+  const file = path.join(project, '.opencode/toolkit-manifest.json');
+  const manifest = JSON.parse(read(file)); delete manifest.models;
+  writeFileSync(file, `${JSON.stringify(manifest, null, 2)}\n`);
+  const developer = path.join(project, '.opencode/agents/developer.md');
+  const raw = read(path.join(root, 'bundle/agents/developer.md'));
+  assert.equal(frontmatterModel(raw), undefined);
+  writeFileSync(developer, raw);
+  const result = install({ project });
+  assert.deepEqual(result.models, DEFAULT_PROFILE);
+  assert.deepEqual(JSON.parse(read(file)).models, DEFAULT_PROFILE);
+  assertAssignments(project, DEFAULT_PROFILE);
+});
+
+test('invalid persisted profile selectors fail before generated writes', t => {
+  for (const models of [
+    { thinking: 'not-a-selector', coding: DEFAULT_PROFILE.coding },
+    { thinking: DEFAULT_PROFILE.thinking, coding: '' },
+    null,
+  ]) {
+    const project = fixture(t); mkdirSync(path.join(project, '.opencode'));
+    const file = path.join(project, '.opencode/toolkit-manifest.json');
+    const original = `${JSON.stringify({ format: 1, models }, null, 2)}\n`;
+    writeFileSync(file, original);
+    assert.throws(() => install({ project }), /model/i);
+    assert.equal(read(file), original);
+    assert.equal(existsSync(path.join(project, '.opencode/opencode.json')), false);
+    assert.equal(existsSync(path.join(project, '.opencode/agents')), false);
+  }
+});
+
+test('invalid model selectors fail before creating or writing installation files', t => {
+  const invalid = [
+    ['--thinking-model', ''], ['--coding-model', 'google'], ['--coding-model', 'google/'],
+    ['--thinking-model', '/model'], ['--thinking-model', 'google//model'],
+    ['--thinking-model', 'google/model#'], ['--thinking-model', 'google/model#a#b'],
+    ['--thinking-model', 'http://example/model'], ['--thinking-model', ' google/model'],
+    ['--thinking-model'],
+  ];
+  for (const args of invalid) {
+    const project = fixture(t);
+    const result = run('--project', project, ...args);
+    assert.notEqual(result.status, 0, args.join(' '));
+    assert.match(result.stderr, /model/i, args.join(' '));
+    assert.equal(existsSync(path.join(project, '.opencode')), false, args.join(' '));
+  }
+  const project = fixture(t);
+  assert.throws(() => install({ project, codingModel: 42 }), /coding model/i);
+  assert.equal(existsSync(path.join(project, '.opencode')), false);
+});
+
+test('dry-run reports the effective profile without writing', t => {
+  const parent = fixture(t); const project = path.join(parent, 'missing');
+  const result = run('--project', project, '--dry-run', '--coding-model', 'vendor/coder#fast');
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /thinking google\/gemini-4-hydrogen/);
+  assert.match(result.stdout, /coding vendor\/coder#fast/);
+  assert.equal(existsSync(project), false);
+  const api = install({ project, dryRun: true, thinkingModel: 'vendor/thinker' });
+  assert.deepEqual(api.models, { thinking: 'vendor/thinker', coding: DEFAULT_PROFILE.coding });
+  assert.equal(api.backupDirectory, null);
+  assert.equal(existsSync(project), false);
+});
+
+test('model rendering is idempotent and switching profiles replaces generated assignments', t => {
+  const project = fixture(t);
+  install({ project, thinkingModel: 'openai/gpt-6.1-sol#high' });
+  const config = read(path.join(project, '.opencode/opencode.json'));
+  const manifest = read(path.join(project, '.opencode/toolkit-manifest.json'));
+  assert.deepEqual(install({ project }).changes, []);
+  assert.equal(read(path.join(project, '.opencode/opencode.json')), config);
+  assert.equal(read(path.join(project, '.opencode/toolkit-manifest.json')), manifest);
+  const switched = install({ project, codingModel: 'vendor/coder#fast' });
+  assert.ok(switched.changes.includes('.opencode/agents/developer.md'));
+  assert.ok(switched.changes.includes('.opencode/opencode.json'));
+  assertAssignments(project, { thinking: 'openai/gpt-6.1-sol#high', coding: 'vendor/coder#fast' });
+  assert.deepEqual(install({ project }).changes, []);
+});
+
+test('profile updates preserve unrelated JSONC, permissions, and built-in prompt settings', t => {
+  const project = fixture(t); mkdirSync(path.join(project, '.opencode'));
+  const file = path.join(project, '.opencode/opencode.jsonc');
+  writeFileSync(file, `{
+  // keep root model
+  "model": "local/model",
+  "default_agent": "build",
+  "agents": {
+    "plan": {
+      // keep custom built-in prompt
+      "system": "CUSTOM PLAN PROMPT",
+      "permissions": [{"action": "shell", "resource": "custom *", "effect": "ask"}]
+    },
+    "local-helper": {"mode": "subagent"}
+  },
+  "permissions": [{"action": "shell", "resource": "custom-deploy *", "effect": "deny"}],
+  "providers": {"local": {}}
+}
+`);
+  install({ project, thinkingModel: 'vendor/thinker', codingModel: 'vendor/coder' });
+  const content = read(file);
+  assert.match(content, /keep root model/);
+  assert.match(content, /keep custom built-in prompt/);
+  const config = parseConfig(content, file);
+  assert.equal(config.model, 'local/model');
+  assert.equal(config.default_agent, 'build');
+  assert.deepEqual(config.providers, { local: {} });
+  assert.equal(config.agents.plan.system, 'CUSTOM PLAN PROMPT');
+  assert.deepEqual(config.agents.plan.permissions, [{ action: 'shell', resource: 'custom *', effect: 'ask' }]);
+  assert.equal(config.agents.plan.model, 'vendor/thinker');
+  assert.deepEqual(config.agents['local-helper'], { mode: 'subagent' });
+  assert.deepEqual(config.permissions.at(-1), { action: 'shell', resource: 'custom-deploy *', effect: 'deny' });
+  assertAssignments(project, { thinking: 'vendor/thinker', coding: 'vendor/coder' });
 });
 
 test('explicit source export includes curated license/content but excludes unrelated skills and runtime state', t => {

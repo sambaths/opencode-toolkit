@@ -1,7 +1,9 @@
 # OpenCode Toolkit
 
 Reusable project-local OpenCode V2 agents and commands. Node.js 20+ and npm are
-required. OpenCode must already be installed. No provider/model is hard-coded.
+required. OpenCode must already be installed. Provider credentials are not
+included; the installer sets a default thinking/coding model profile that can be
+overridden per project.
 
 ## One-command installation
 
@@ -29,11 +31,75 @@ npx --yes github:sambaths/opencode-toolkit --project . --dry-run
 For local/offline source use, install package dependencies first, then run
 `node /path/to/toolkit/bin/install.mjs --project /path/to/project`.
 
+## Model profiles
+
+Each project gets a persistent thinking/coding model profile. Fresh installs and
+updates from manifests without a profile receive these defaults:
+
+| Tier | Default selector | Used by |
+| --- | --- | --- |
+| thinking | `google/gemini-4-hydrogen` | Coordination, planning, review, research, and read-only analysis |
+| coding | `opencode/deepseek-v4.1-flash` | Implementation, tests, docs, build resolvers, and infrastructure changes |
+
+Choose one or both tiers during install or update:
+
+```sh
+npx --yes github:sambaths/opencode-toolkit --project . \
+  --thinking-model 'openai/gpt-6.1-sol#high'
+npx --yes github:sambaths/opencode-toolkit --project . \
+  --coding-model 'provider/model#variant' \
+  --thinking-model 'google/gemini-4-hydrogen'
+```
+
+A selector is `provider/model` with an optional `#variant`. Empty, malformed, or
+whitespace-padded selectors are rejected before any files are written. Passing
+one flag changes only that tier and retains the saved selector for the other;
+omitting both retains the saved pair. The pair is stored in
+`.opencode/toolkit-manifest.json` and rendered into installed agent definitions,
+so later updates and command runs use the same profile. `--dry-run` prints the
+effective profile without writing.
+
+Every shipped role has an explicit tier:
+
+- **thinking:** manager, moderator, planner, architect, researcher, reviewer,
+  adversarial-tester, performance-engineer, reverse-engineer, notetaker,
+  tracker-sync, toolsmith, code-reviewer, security-reviewer,
+  database-reviewer, docs-lookup, the Go/C++/Java/Kotlin/PHP/Python/Rust
+  reviewers, and built-in `plan`, `general`, and `explore`.
+- **coding:** `build`, developer, senior-developer, tdd-guide,
+  build-error-resolver, the Go/C++/Java/Kotlin/Rust build resolvers,
+  e2e-runner, doc-updater, refactor-cleaner, harness-optimizer, loop-operator,
+  systems-engineer, and frontend-designer.
+
+Mixed roles are classified by primary purpose: security-reviewer and
+database-reviewer are review-first (thinking), while frontend-designer and
+systems-engineer are implementation-capable (coding). When a review role finds
+work that needs remediation, the manager should route it to a developer rather
+than relying on a silent mid-task model switch.
+
+The raw bundle templates stay model-neutral; only installed output receives a
+`model` field. Built-in `plan`, `general`, and `explore` receive a model without a
+`system` prompt, so their built-in prompts are not replaced. Existing unrelated
+agent settings and JSONC comments are retained. Shipped commands do not set
+`model`, so command execution uses an explicit command model if one is added
+later, then the selected agent's configured model, then the current session
+model. See [command execution](https://opencode.ai/docs/commands#execution).
+A primary agent selected in an existing session has its own stored session
+model; changing this profile does not rewrite that session by itself.
+
+Installation is offline and does not verify provider credentials, model
+availability, or variants. There is no automatic failover or silent downgrade.
+If a configured thinking model is unavailable, OpenCode should surface an
+error/pause rather than switching models; rerun with an available
+`--thinking-model` or continue with an explicitly chosen session model. This
+project's tests cannot establish runtime availability.
+
 ## What gets installed
 
 The installer writes `<project>/.opencode/`: 16 custom team roles, 24 retained
-ECC agents (including the build override), 23 commands, their prompts, shared
-instructions, six curated skills, local ledger tools/tests/evaluator, and an ownership manifest. Matching agent/command
+ECC agents (including the build override), model assignments for built-in
+`plan`/`general`/`explore`, 23 commands, their prompts, shared instructions, six
+curated skills, local ledger tools/tests/evaluator, and an ownership manifest. Matching agent/command
 definitions in a project-root `opencode.json(c)` are removed to avoid duplicate
 definitions; unrelated settings and comments remain intact. It never changes
 your project's `AGENTS.md`, global OpenCode configuration, provider settings, or
@@ -72,9 +138,10 @@ installing them silently. These dependencies may be needed for particular tasks.
   unchanged reinstalls do not create backup snapshots.
 - Dry-run lists planned paths without replacing files or creating backups. It is
   not a line-level diff.
-- The manifest records managed hashes/configuration. Do not edit it to bypass
-  ownership tracking. Files retired from a later bundle are not auto-deleted unless
-  they conflict with an exported agent/command ID.
+- The manifest records the selected model profile, managed hashes of the rendered
+  installed files, and configuration. Do not edit it to bypass ownership tracking.
+  Files retired from a later bundle are not auto-deleted unless they conflict with
+  an exported agent/command ID.
 - Symlinked installation paths are refused. Individual writes use atomic rename;
   the entire installation is not a filesystem transaction. An I/O failure can
   leave a partial install; fix the cause and rerun.
@@ -235,9 +302,12 @@ npm pack
 ```
 
 Installer integration tests cover fresh install, dry-run, JSONC, idempotency,
-replacement/backups, unrelated-file preservation, and symlink protection. Bundle validation parses YAML,
-checks references/routing, and detects duplicated definitions. Model behavior and
-real Windows/macOS execution are not established by Linux tests.
+replacement/backups, unrelated-file preservation, symlink protection, exhaustive
+model-tier assignment, partial overrides, persistence/switching, legacy profile
+updates, invalid selectors before writes, and rendered file hashes. Bundle validation parses YAML,
+checks references/routing, and detects duplicated definitions. Model availability,
+live model behavior, and real Windows/macOS execution are not established by
+Linux tests.
 Ledger tests cover versioning, project scope, schema/corruption checks, acceptance,
 expiry/invalidation, approval/revocation, concurrent writers, and path protections.
 The existing skill evaluator scores supplied manifests, not live model runs.
