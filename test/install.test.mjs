@@ -15,7 +15,9 @@ function fixture(t) {
   t.after(() => rmSync(base, { recursive: true, force: true }));
   return base;
 }
-const run = (...args) => spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8' });
+// Every CLI installation test runs offline; RTK provisioning has separate
+// orchestrator tests with an injected downloader.
+const run = (...args) => spawnSync(process.execPath, [cli, ...args, '--no-rtk'], { encoding: 'utf8' });
 const read = file => readFileSync(file, 'utf8');
 const configuration = project => JSON.parse(read(path.join(project, '.opencode/opencode.json')));
 const DEFAULT_PROFILE = { thinking: 'google/gemini-4-hydrogen', coding: 'opencode/deepseek-v4.1-flash' };

@@ -28,8 +28,16 @@ Preview without writing:
 npx --yes github:sambaths/opencode-toolkit --project . --dry-run
 ```
 
+The default install also provisions managed RTK OSS v1.2.1 at
+`.opencode/vendor/rtk/` from a pinned HTTPS asset; `--no-rtk` is optional and skips
+it. Supported targets: `linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64`,
+and `win32-x64`. It installs no plugin, `rtk init`, automatic command rewriting,
+PATH entry, or permission change; see [RTK install behavior](bundle/tools/rtk-install.md).
+
 For local/offline source use, install package dependencies first, then run
-`node /path/to/toolkit/bin/install.mjs --project /path/to/project`.
+`node /path/to/toolkit/bin/install.mjs --project /path/to/project --no-rtk`.
+`--no-rtk` is the optional opt-out from the default managed RTK download; the
+normal one-command install needs no extra flag.
 
 ## Model profiles
 
@@ -87,8 +95,10 @@ model. See [command execution](https://opencode.ai/docs/commands#execution).
 A primary agent selected in an existing session has its own stored session
 model; changing this profile does not rewrite that session by itself.
 
-Installation is offline and does not verify provider credentials, model
-availability, or variants. There is no automatic failover or silent downgrade.
+Model profile resolution is offline and does not verify provider credentials,
+model availability, or variants. The default install also downloads a pinned RTK
+OSS asset over HTTPS unless `--no-rtk` is passed; an intact managed install is
+reused. There is no automatic failover or silent downgrade.
 If a configured thinking model is unavailable, OpenCode should surface an
 error/pause rather than switching models; rerun with an available
 `--thinking-model` or continue with an explicitly chosen session model. This
@@ -99,7 +109,8 @@ project's tests cannot establish runtime availability.
 The installer writes `<project>/.opencode/`: 16 custom team roles, 24 retained
 ECC agents (including the build override), model assignments for built-in
 `plan`/`general`/`explore`, 23 commands, their prompts, shared instructions, six
-curated skills, local ledger tools/tests/evaluator, and an ownership manifest. Matching agent/command
+curated skills, local ledger and context audit/packer tools/tests/evaluator, the
+managed RTK OSS binary, and an ownership manifest. Matching agent/command
 definitions in a project-root `opencode.json(c)` are removed to avoid duplicate
 definitions; unrelated settings and comments remain intact. It never changes
 your project's `AGENTS.md`, global OpenCode configuration, provider settings, or
@@ -177,9 +188,14 @@ are surfaced rather than resolved by copying another project's workflow.
 Before product, code, or test changes, the manager or planner (thinking tier)
 authors a source-grounded plan: goal/scope/non-goals, affected files and seams,
 ordered steps, acceptance IDs, baseline/verification commands, risks/assumptions,
-and a repair limit. The manager passes the same plan identity, revision, and
-content—or its accessible authorized source—to implementers and testers; an ID
-alone is insufficient for fresh child contexts.
+and a repair limit. The manager passes the same plan identity and revision to
+implementers and testers as sufficient scoped excerpts—shared goal, constraints,
+and non-goals; relevant steps, dependencies, interfaces, and owned paths;
+acceptance IDs with expected results; verification commands and evidence; and
+remaining budget—or an existing authorized source. Same plan does not mean
+identical text; an ID alone is insufficient for fresh child contexts, and
+reviewers/testers receive the complete relevant cross-step requirements so an
+excerpt cannot omit constraints or acceptance.
 
 Direct `build`, developer/senior-developer, and implementation-capable retained
 roles check the supplied plan before editing and return missing, stale, or
@@ -313,6 +329,64 @@ optional and unbundled. Unrelated local skill IDs are preserved; an unmanaged
 directory colliding with a curated ID causes installation to fail before writes,
 rather than silently taking ownership. Previously managed skill updates follow
 the normal replacement/backup policy.
+
+## Context and token efficiency
+
+These prompts reduce repeated context and work without weakening planning, tests,
+or independent review. Scoped plan packets, focused reads, proportional delegation,
+evidence reuse, and delta reporting cut repeated source and status text. They are
+instructions, not runtime token controls, quotas, or measured savings.
+
+Prefer native scoped search, Git, JSON, and LSP capabilities when the runtime
+provides them, without adding mandatory dependencies or skills. Default to compact
+handoffs, focused tests, and delta reports while honoring explicit user scope and
+project checks; these are prompt-level defaults, not a guarantee an agent runtime
+follows them.
+
+Concise-agent defaults affect visible output and repeated context, not guaranteed
+internal reasoning or cost savings. They are prompt-level guidance, not a full
+Caveman skill installation or a global short mode; project Report contracts,
+required evidence, and user-specified verbosity still govern.
+
+Primary platform sources (checked 2026-11-25):
+
+- [Compaction limits](https://opencode.ai/docs/compaction#limits): fixed tool and
+  instruction overhead remains even after compaction.
+- [Background compaction](https://opencode.ai/docs/compaction#background-compaction):
+  default on; summaries are lossy and cost tokens to produce. Disabling speculative
+  background summaries is optional, not a guaranteed saving. This toolkit has no
+  native compaction or token controller.
+- [Skills loading](https://opencode.ai/docs/skills#loading): skill metadata is
+  advertised, bodies load on demand, and support files are not auto-loaded.
+- [Prompt caching](https://opencode.ai/docs/models#prompt-caching) and
+  [Gemini caching](https://ai.google.dev/gemini-api/docs/caching): stable common
+  prefixes can help best-effort cached billing and latency. Caching does not reduce
+  logical tokens or context, and padding prompts to trigger it is counterproductive.
+  Gemini ignores OpenCode's `cache.ttl`. DeepSeek's
+  [automatic prefix caching](https://api-docs.deepseek.com/guides/kv_cache) does not
+  establish behavior or billing on this OpenCode route.
+- [Tool output limits](https://opencode.ai/docs/config#output): optional caps can
+  hide diagnostics; prefer scoped commands and bounded reads.
+- [Warming](https://opencode.ai/docs/warming): real billable requests; disabled by
+  default and left unchanged.
+- [MCP servers](https://opencode.ai/docs/mcp-servers): Code Mode is already the
+  default; discover narrowly and return only needed data.
+
+Optional local aids:
+
+- [Context footprint audit and scoped packer](bundle/tools/context-tools.md): the
+  audit reports UTF-8 source bytes, not tokens or live request loads; the packer
+  reports what it omits. These are local tools, not a plan author, quality
+  enforcer, or runtime controller.
+- [RTK OSS binary guide](bundle/tools/rtk.md) and [install behavior](bundle/tools/rtk-install.md):
+  the same single `npx` installation auto-provisions the managed RTK OSS binary,
+  with no extra steps, and safe optimization behavior is the default. Automatic RTK
+  command rewriting, plugin installation, and `init` remain OFF because upstream
+  permission discovery does not read `.opencode/opencode.json(c)`; no runtime
+  rewrite integration is claimed.
+
+Default model flags, provider settings, and existing behavior stay unchanged. This
+documentation makes no percentage-savings or runtime-enforcement promise.
 
 ## Development and verification
 

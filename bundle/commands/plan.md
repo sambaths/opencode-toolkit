@@ -56,7 +56,7 @@ Follow the shared Plan-first handoff contract.
 ### Estimated Complexity
 [HIGH/MEDIUM/LOW with time estimates]
 
-Do not add an approval gate unless the user asked for one or the plan includes a materially risky decision that needs their choice.
+Assignments may receive sufficient scoped excerpts under the shared contract. Do not add an approval gate unless the user asked for one or the plan includes a materially risky decision that needs their choice.
 
 ---
 
