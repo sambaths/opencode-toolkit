@@ -6,20 +6,19 @@ subagent: true
 
 # Rust Test Command
 
-Implement using Rust TDD methodology: $ARGUMENTS
+Implement with Rust TDD: $ARGUMENTS
 
 ## Your Task
 
-Apply test-driven development with Rust idioms:
-
-1. **Define types** - Structs, enums, traits
-2. **Write tests** - Unit tests in `#[cfg(test)]` modules
-3. **Implement minimal code** - Pass the tests
-4. **Check coverage** - Apply project-defined targets only; do not invent a threshold.
+1. Define structs, enums, and traits.
+2. Write unit tests in `#[cfg(test)]` modules.
+3. Add the minimum code that passes.
+4. Check coverage only against project-defined targets; don't invent a threshold.
 
 ## TDD Cycle for Rust
 
 ### Step 1: Define Interface
+
 ```rust
 pub struct Input {
     // fields
@@ -31,6 +30,7 @@ pub fn process(input: &Input) -> Result<Output, Error> {
 ```
 
 ### Step 2: Write Tests
+
 ```rust
 #[cfg(test)]
 mod tests {
@@ -39,34 +39,34 @@ mod tests {
     #[test]
     fn valid_input_succeeds() {
         let input = Input { /* ... */ };
-        let result = process(&input);
-        assert!(result.is_ok());
+        assert!(process(&input).is_ok());
     }
 
     #[test]
     fn invalid_input_returns_error() {
         let input = Input { /* ... */ };
-        let result = process(&input);
-        assert!(result.is_err());
+        assert!(process(&input).is_err());
     }
 }
 ```
 
 ### Step 3: Run Tests (RED)
+
 ```bash
 cargo test
 ```
 
 ### Step 4: Implement (GREEN)
+
 ```rust
 pub fn process(input: &Input) -> Result<Output, Error> {
-    // Minimal implementation that handles both paths
     validate(input)?;
     Ok(Output { /* ... */ })
 }
 ```
 
 ### Step 5: Check Coverage
+
 ```bash
 cargo llvm-cov
 # Add --fail-under-lines only with the project's documented target.
@@ -75,30 +75,29 @@ cargo llvm-cov
 ## Rust Testing Commands
 
 ```bash
-cargo test                        # Run all tests
-cargo test -- --nocapture         # Show println output
-cargo test test_name              # Run specific test
-cargo test --no-fail-fast         # Don't stop on first failure
-cargo test --lib                  # Unit tests only
-cargo test --test integration     # Integration tests only
-cargo test --doc                  # Doc tests only
-cargo bench                       # Run benchmarks
+cargo test
+cargo test -- --nocapture
+cargo test test_name
+cargo test --no-fail-fast
+cargo test --lib
+cargo test --test integration
+cargo test --doc
+cargo bench
 ```
 
 ## Test File Organization
 
-```
+```text
 src/
-├── lib.rs             # Library root
-├── service.rs         # Implementation
+├── lib.rs
+├── service.rs
 └── service/
     └── tests.rs       # Or inline #[cfg(test)] mod tests {}
 tests/
-└── integration.rs     # Integration tests
+└── integration.rs
 benches/
-└── benchmark.rs       # Criterion benchmarks
+└── benchmark.rs
 ```
 
----
-
-**TIP**: Use `rstest` for parameterized tests and `proptest` for property-based testing.
+Use `rstest` for parameterized tests and `proptest` for property-based tests
+when they fit the project.

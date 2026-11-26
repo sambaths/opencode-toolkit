@@ -5,14 +5,12 @@ agent: build
 
 # Verify Command
 
-Run verification loop to validate the implementation: $ARGUMENTS
+Verify the implementation: $ARGUMENTS
 
 ## Your Task
 
-Execute comprehensive verification:
-
-1. Discover the project's documented or configured type-check, lint, test, integration, build, and coverage commands.
-2. Run only checks relevant to the changed scope, starting with focused checks and broadening as risk warrants.
+1. Find the project's configured type-check, lint, test, integration, build, and coverage commands.
+2. Run checks relevant to the changed scope. Start focused and broaden as risk warrants.
 3. Apply coverage targets only when the project or user defines them.
 
 ## Verification Checklist

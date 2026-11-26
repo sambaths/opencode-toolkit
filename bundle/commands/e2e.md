@@ -6,14 +6,14 @@ subagent: true
 
 # E2E Command
 
-Generate and run end-to-end tests using Playwright: $ARGUMENTS
+Generate and run end-to-end tests with Playwright: $ARGUMENTS
 
 ## Your Task
 
-1. **Analyze user flow** to test
-2. **Create test journey** with Playwright
-3. **Run tests** and capture artifacts
-4. **Report results** with screenshots/videos
+1. Analyze the user flow.
+2. Create a Playwright test journey.
+3. Run it and capture artifacts.
+4. Report results with screenshots/videos when useful.
 
 ## Test Structure
 
@@ -22,22 +22,19 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Feature: [Name]', () => {
   test.beforeEach(async ({ page }) => {
-    // Setup: Navigate, authenticate, prepare state
+    // Navigate, authenticate, and prepare state.
   })
 
   test('should [expected behavior]', async ({ page }) => {
-    // Arrange: Set up test data
-
-    // Act: Perform user actions
+    // Arrange.
     await page.click('[data-testid="button"]')
     await page.fill('[data-testid="input"]', 'value')
 
-    // Assert: Verify results
+    // Act, then assert.
     await expect(page.locator('[data-testid="result"]')).toBeVisible()
   })
 
   test.afterEach(async ({ page }, testInfo) => {
-    // Capture screenshot on failure
     if (testInfo.status !== 'passed') {
       await page.screenshot({ path: `test-results/${testInfo.title}.png` })
     }
@@ -48,51 +45,42 @@ test.describe('Feature: [Name]', () => {
 ## Best Practices
 
 ### Selectors
-- Prefer `data-testid` attributes
-- Avoid CSS classes (they change)
-- Use semantic selectors (roles, labels)
+
+- Prefer `data-testid` or semantic roles/labels.
+- Avoid CSS classes when they're likely to change.
 
 ### Waits
-- Use Playwright's auto-waiting
-- Avoid `page.waitForTimeout()`
-- Use `expect().toBeVisible()` for assertions
 
-### Test Isolation
-- Each test should be independent
-- Clean up test data after
-- Don't rely on test order
+- Use Playwright's auto-waiting and `expect()` assertions.
+- Avoid `page.waitForTimeout()`.
+
+### Isolation
+
+- Keep each test independent.
+- Clean up test data.
+- Don't rely on test order.
 
 ## Artifacts to Capture
 
 - Screenshots on failure
 - Videos for debugging
-- Trace files for detailed analysis
-- Network logs if relevant
+- Traces for detailed analysis
+- Network logs when relevant
 
 ## Test Categories
 
-1. **Critical User Flows**
-   - Authentication (login, logout, signup)
-   - Core feature happy paths
-   - Payment/checkout flows
-
-2. **Edge Cases**
-   - Network failures
-   - Invalid inputs
-   - Session expiry
-
-3. **Cross-Browser**
-   - Chrome, Firefox, Safari
-   - Mobile viewports
+1. **Critical flows**: auth, core happy paths, payment/checkout.
+2. **Edge cases**: network failures, invalid inputs, session expiry.
+3. **Cross-browser**: configured browsers and mobile viewports.
 
 ## Report Format
 
-```
+```text
 E2E Test Results
 ================
-PASS: Passed: X
-FAIL: Failed: Y
-SKIPPED: Skipped: Z
+PASS: X
+FAIL: Y
+SKIPPED: Z
 
 Failed Tests:
 - test-name: Error message
@@ -100,6 +88,4 @@ Failed Tests:
   Video: path/to/video.webm
 ```
 
----
-
-**TIP**: Run with `--headed` flag for debugging: `npx playwright test --headed`
+Run with `--headed` for debugging: `npx playwright test --headed`.

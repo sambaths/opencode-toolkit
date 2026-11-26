@@ -6,14 +6,14 @@ subagent: true
 
 # Rust Review Command
 
-Review Rust code for idiomatic patterns and best practices: $ARGUMENTS
+Review Rust code for idiomatic patterns and project requirements: $ARGUMENTS
 
 ## Your Task
 
-1. **Analyze Rust code** for idioms and patterns
-2. **Check ownership** - borrowing, lifetimes, unnecessary clones
-3. **Review error handling** - proper `?` propagation, no unwrap in production
-4. **Verify safety** - unsafe usage, injection, secrets
+1. **Analyze** idioms and patterns.
+2. **Check ownership**: borrowing, lifetimes, unnecessary clones.
+3. **Review errors**: `?` propagation and production `unwrap`/`expect` use.
+4. **Verify safety**: `unsafe`, injection, and secrets.
 
 ## Review Checklist
 
@@ -41,8 +41,8 @@ Review Rust code for idiomatic patterns and best practices: $ARGUMENTS
 - [ ] `Send`/`Sync` bounds correct
 
 ### Code Quality (MEDIUM)
-- [ ] Functions under 50 lines
-- [ ] No deep nesting (>4 levels)
+- [ ] Project-defined function-length limit met; use 50 lines only when the project specifies it
+- [ ] Project-defined nesting limit met; use 4 levels only when the project specifies it
 - [ ] Exhaustive matching on business enums
 - [ ] Clippy warnings addressed
 
@@ -62,4 +62,4 @@ Review Rust code for idiomatic patterns and best practices: $ARGUMENTS
 
 ---
 
-**TIP**: Run `cargo clippy -- -D warnings` and `cargo fmt --check` for automated checks.
+Run `cargo clippy -- -D warnings` and `cargo fmt --check` when they match the project's checks.

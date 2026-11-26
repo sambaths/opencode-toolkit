@@ -1,0 +1,35 @@
+name: Question
+description: Ask about installation, configuration, or usage.
+title: "[Question]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the README first. Do not include credentials, API keys, tokens, or private configuration.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What would you like help with?
+    validations:
+      required: true
+  - type: textarea
+    id: attempts
+    attributes:
+      label: What have you tried?
+      description: List exact commands and share relevant sanitized output.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the toolkit version or commit, Node.js and npm versions, OS and architecture, and OpenCode version.
+      placeholder: |
+        Toolkit version / commit:
+        Node.js:
+        npm:
+        OS / architecture:
+        OpenCode version:
+    validations:
+      required: true

@@ -10,79 +10,51 @@ Analyze and clean up the codebase: $ARGUMENTS
 
 ## Your Task
 
-1. **Detect dead code** using analysis tools
-2. **Identify duplicates** and consolidation opportunities
-3. **Safely remove** unused code with documentation
-4. **Verify** no functionality broken
+1. Detect dead code with the project's analysis tools.
+2. Find duplicates and consolidation opportunities.
+3. Remove unused code safely, with the project's required documentation.
+4. Verify nothing broke.
 
 ## Detection Phase
 
-### Run Analysis Tools
+Use existing tools where configured:
 
 ```bash
-# Find unused exports
 npx knip
-
-# Find unused dependencies
 npx depcheck
-
-# Find unused TypeScript exports
 npx ts-prune
 ```
 
-### Manual Checks
-
-- Unused functions (no callers)
-- Unused variables
-- Unused imports
-- Commented-out code
-- Unreachable code
-- Unused CSS classes
+Don't install a new analyzer without authorization. Also check for unused
+functions, variables, imports, commented-out or unreachable code, and unused CSS
+classes.
 
 ## Removal Phase
 
-### Before Removing
+Before removing anything:
 
-1. **Search for usage** - grep, find references
-2. **Check exports** - might be used externally
-3. **Verify tests** - no test depends on it
-4. **Document removal** - git commit message
+1. Search for usage and references.
+2. Check whether exports are used externally.
+3. Verify no test depends on it.
+4. Follow the project's commit-message rules when a commit is authorized.
 
-### Safe Removal Order
-
-1. Remove unused imports first
-2. Remove unused private functions
-3. Remove unused exported functions
-4. Remove unused types/interfaces
-5. Remove unused files
+Remove in a safe order: unused imports, private functions, exported functions,
+types/interfaces, then files. Keep each step verifiable.
 
 ## Consolidation Phase
 
-### Identify Duplicates
-
-- Similar functions with minor differences
-- Copy-pasted code blocks
-- Repeated patterns
-
-### Consolidation Strategies
-
-1. **Extract utility function** - for repeated logic
-2. **Create base class** - for similar classes
-3. **Use higher-order functions** - for repeated patterns
-4. **Create shared constants** - for magic values
+Look for similar functions, copy-pasted blocks, and repeated patterns. Prefer the
+project's existing conventions: a utility function, shared constants, a base
+class, or higher-order functions where each fits.
 
 ## Verification
 
-After cleanup:
-
-1. `npm run build` - builds successfully
-2. `npm test` - all tests pass
-3. `npm run lint` - no new lint errors
-4. Manual smoke test - features work
+Run the active project's build, tests, lint, and smoke checks. Don't assume
+`npm run build`, `npm test`, or `npm run lint` exists.
 
 ## Report Format
 
-```
+```text
 Dead Code Analysis
 ==================
 
@@ -97,6 +69,4 @@ Remaining (manual review needed):
 - oldComponent.tsx: potentially unused, verify with team
 ```
 
----
-
-**CAUTION**: Always verify before removing. When in doubt, ask or add `// TODO: verify usage` comment.
+Always verify before removing. When in doubt, ask or add `// TODO: verify usage`.

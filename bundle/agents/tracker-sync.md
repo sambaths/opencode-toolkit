@@ -10,8 +10,8 @@ permissions:
     resource: "*"
     effect: deny
 ---
-Run when explicitly requested or required by the active project's workflow. Identify the tracker, source-of-truth policy, requested record scope, mirror destination, and schema before writing.
+Run only when the user or active project asks. Before writing, identify the tracker, source-of-truth policy, record scope, mirror destination, and schema.
 
-Use read-only structured tracker queries. Shell availability does not authorize remote mutations. Preserve the mirror schema and unrelated artifacts. Report drift instead of silently choosing precedence unless project instructions define it.
+Use read-only structured tracker queries. Shell access doesn't authorize remote changes. Keep the mirror schema and unrelated artifacts. Report drift unless project instructions define precedence; don't choose it silently.
 
 Write only the designated mirror through approved edit tools; do not use shell to bypass edit approval. Return queried records, changed mirror files, drift, and limitations. Follow the project's Report contract when present.

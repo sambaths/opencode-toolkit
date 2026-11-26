@@ -10,10 +10,10 @@ Fix Rust build, clippy, and dependency errors: $ARGUMENTS
 
 ## Your Task
 
-1. **Run cargo check**: `cargo check 2>&1`
-2. **Run cargo clippy**: `cargo clippy -- -D warnings 2>&1`
-3. **Fix errors** one at a time
-4. **Verify fixes** don't introduce new errors
+1. **Run cargo check**: `cargo check 2>&1`.
+2. **Run cargo clippy**: `cargo clippy -- -D warnings 2>&1`.
+3. **Fix errors** one at a time.
+4. **Verify fixes** don't introduce new errors.
 
 ## Common Rust Errors
 

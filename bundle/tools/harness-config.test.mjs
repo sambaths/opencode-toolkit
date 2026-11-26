@@ -76,3 +76,49 @@ test('task triage preserves unfinished work and asks only for consequential comp
   assert.match(manager, /budget.*reset|reset.*budget/);
   assert.match(read('commands/orchestrate.md'), /task triage/i);
 });
+
+test('harness audit explicitly covers cache compatibility, Code Mode, compaction, output caps, warming, and RTK boundaries', () => {
+  const command = read('commands/harness-audit.md');
+  for (const phrase of [
+    "compatibility.cacheFormat: 'anthropic'", 'codemode: false', 'agents.compaction.model', 'keep.tokens',
+    'background', 'tool_output.max_lines', 'tool_output.max_bytes', 'Warming cost', 'different permission resource',
+    'does not force a compaction model', 'experimental.location_idle_timeout', 'local `.opencode` value retains precedence', '**static**', '**runtime evidence**',
+  ]) assert.ok(command.includes(phrase), phrase);
+  for (const url of [
+    'https://opencode.ai/v2/docs/models', 'https://opencode.ai/v2/docs/config',
+    'https://opencode.ai/v2/docs/mcp-servers', 'https://opencode.ai/v2/docs/compaction',
+    'https://github.com/pleasedodisturb/awesome-llm-token-optimization',
+  ]) assert.ok(command.includes(url), url);
+  for (const url of ['https://opencode.ai/changelog', 'https://opencode.ai/changelog/v2.4.1', 'https://opencode.ai/changelog/v2.4.0',
+    'https://opencode.ai/changelog/v2.3.2', 'https://opencode.ai/changelog/v2.3.1', 'https://opencode.ai/v2/docs/api',
+    'https://opencode.ai/v2/openapi.json', 'https://opencode.ai/v2/docs/config#worktrees', 'https://opencode.ai/v2/docs/tools#worktrees']) {
+    assert.ok(command.includes(url), url);
+  }
+  for (const url of ['/v2/docs/automations', '/v2/docs/background-jobs', '/v2/docs/session-inbox', '/v2/docs/worktrees']) assert.ok(!command.includes(url), url);
+  for (const phrase of ['timed-out shell commands', 'webfetch', 'newest protocol', 'GPT-6.2', 'plugin automation API',
+    'full_codemode', 'model_speeds', 'configDir', 'version-range auto-updates', 'background compaction', 'strict unattended profile is roadmap only']) {
+    assert.ok(command.includes(phrase), phrase);
+  }
+});
+
+test('export definition-path checks are segment-aware on Windows and POSIX', () => {
+  const exporter = readFileSync(path.join(root, '../scripts/export.mjs'), 'utf8');
+  assert.match(exporter, /function isDefinitionPath[\s\S]*?relative\.split\(path\.sep\)/);
+  assert.doesNotMatch(exporter, /relative\.startsWith\('agents\/'\)|relative\.startsWith\('commands\/'\)/);
+});
+
+test('usage audit command and guide cite the V2 API contract and preserve the privacy boundary', () => {
+  const command = read('commands/usage-audit.md');
+  const guide = read('tools/usage-audit.md');
+  assert.match(command, /\.opencode\/tools\/usage-audit\.md/);
+  assert.match(command, /node \.opencode\/tools\/usage-audit\.mjs/);
+  for (const url of [
+    'https://opencode.ai/v2/docs/cli/commands#api', 'https://opencode.ai/v2/docs/api#tag-session',
+    'https://opencode.ai/v2/openapi.json',
+  ]) assert.ok(guide.includes(url), url);
+  assert.match(guide, /never replaces missing values with zero/);
+  assert.match(guide, /Prompts, message content|transcripts, titles, message content/);
+  assert.match(guide, /GET \/api\/location/);
+  assert.match(guide, /may start the OpenCode service or use its configured remote server/);
+  assert.match(guide, /aggregate report metadata in that agent's current model context/);
+});

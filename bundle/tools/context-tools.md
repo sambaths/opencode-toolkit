@@ -1,6 +1,7 @@
 # Bounded context tools
 
-Two read-only, dependency-free commands for one installed project or for this
+Use these when prompt files or a handoff packet are too big to inspect casually.
+They're two read-only, dependency-free commands for an installed project or this
 repository's source bundle (Node.js 20+):
 
 ```sh
@@ -14,15 +15,15 @@ This repository's shipped prompt sources can be audited directly:
 node bundle/tools/context-tools.mjs audit --root bundle
 ```
 
-Both commands print to stdout, send diagnostics to stderr, and exit nonzero on
-failure. They do not call models, send telemetry, use a network, execute shell
-commands, write files, create caches, or read environment/configuration values.
-They import only Node.js built-ins and do not import the installer's `lib/`
-directory, so a copied `.opencode/tools/context-tools.mjs` remains standalone.
+Both print to stdout, send diagnostics to stderr, and exit nonzero on failure.
+They don't call models, send telemetry, use a network, run shell commands, write
+files, create caches, or read environment/config values. They use only Node.js
+built-ins, not the installer's `lib/`, so a copied
+`.opencode/tools/context-tools.mjs` stays standalone.
 
 ## Audit: prompt-source footprint
 
-`audit` measures the toolkit-known prompt sources only:
+`audit` measures only the prompt sources the toolkit knows:
 
 - `instructions/*.md`
 - `agents/*.md`
@@ -30,9 +31,9 @@ directory, so a copied `.opencode/tools/context-tools.mjs` remains standalone.
 - `prompts/agents/*.txt` (when present)
 - `prompts/commands/*.txt` (when present)
 
-It does not recurse, and it never inspects `tools/`, `skills/`, backups, state,
-`node_modules`, arbitrary project files, configuration, or environment values.
-Missing source directories are normal and produce an empty or partial report.
+It doesn't recurse or inspect `tools/`, `skills/`, backups, state, `node_modules`,
+arbitrary project files, config, or environment values. Missing source directories
+are normal; the report can be empty or partial.
 
 The JSON report includes:
 
@@ -42,12 +43,10 @@ The JSON report includes:
   up to 20 occurrence locations per group, and an `opportunity_bytes` estimate;
 - explicit caps, omissions, and truncation flags.
 
-Byte sizes are source footprint, **not token counts** and not the assembled
-runtime context an agent will actually receive. Repeated paragraphs are a
-heuristic; `opportunity_bytes` is not proof that removing a duplicate is safe.
-Only hashes and locations are printed, never the paragraph text. Embedded
-secrets inside otherwise valid prompt files cannot be guaranteed to be detected
-or redacted.
+Byte sizes are source footprint, **not token counts** or the runtime context an
+agent receives. Repeated paragraphs are a heuristic; `opportunity_bytes` doesn't
+prove a duplicate is safe to remove. The report prints hashes and locations, not
+paragraph text. It can't guarantee detection or redaction of embedded secrets.
 
 ### Audit options
 
@@ -59,23 +58,21 @@ or redacted.
 | `--max-file-bytes N` | 524288 | maximum bytes read per file for repetition |
 | `--max-output-bytes N` | 65536 | maximum JSON output bytes |
 
-A file larger than `--max-file-bytes` is still reported from its metadata size,
-but its repetition is not examined. Files beyond the count or byte caps are
-omitted and counted; output trimming is reported under `output.truncated` and
-`output.omitted`. The occurrence-location list is capped at 20 per repeated
-group; the group's `count` remains the full count, while
-`occurrences_truncated: true` and `repetition.truncated: true` record the
-omission. The report's `truncated.complete` flag is false whenever any evidence
-is partial, including capped occurrences, capped groups, capped files, an
-unexamined large file, a truncated scan, or trimmed output. Nothing is silently
-presented as complete.
+A file above `--max-file-bytes` still gets a metadata size, but its repetitions
+aren't examined. Files beyond count/byte caps are omitted and counted. Output
+trimming appears under `output.truncated` and `output.omitted`.
+
+Each repeated group lists at most 20 locations. Its `count` stays complete, while
+`occurrences_truncated: true` and `repetition.truncated: true` record the omitted
+locations. `truncated.complete` is false whenever evidence is partial: capped
+occurrences, groups, files, an unexamined large file, a truncated scan, or trimmed
+output. Nothing partial is presented as complete.
 
 ## Pack: plan plus selected excerpts
 
-`pack` reads one JSON object from stdin. It emits the supplied plan packet and
-only the requested inclusive, 1-based line ranges. It never includes the full
-transcript, writes no file, and keeps no state; request more ranges by running
-it again.
+`pack` reads one JSON object from stdin. It emits your plan packet and only the
+requested inclusive, 1-based line ranges. It never includes the full transcript,
+writes a file, or keeps state. Run it again for more ranges.
 
 ### Packet schema
 
@@ -96,14 +93,15 @@ it again.
 }
 ```
 
-Required plan fields: nonempty single-line `id` and `revision`, a nonempty
-`goal`, and nonempty `constraints`, `steps`, `acceptance`, and `verification`
-arrays of nonempty strings. Optional plan fields are `scope`, `ownership`,
-`dependencies`, `risks` (string arrays) and `budget` (a JSON object). Unknown
-fields are rejected rather than silently dropped. The packer does not author
-the plan, decide whether it is complete, or validate acceptance semantics; it
-preserves the supplied values. In particular, every supplied constraint,
-acceptance criterion, and verification item appears in the output.
+Required plan fields: nonempty single-line `id` and `revision`, a nonempty `goal`,
+and nonempty `constraints`, `steps`, `acceptance`, and `verification` arrays of
+nonempty strings. Optional fields are `scope`, `ownership`, `dependencies`, and
+`risks` (string arrays), plus `budget` (a JSON object). Unknown fields are
+rejected, not dropped.
+
+The packer doesn't author the plan, judge completeness, or validate acceptance
+semantics. It preserves your values, including every constraint, acceptance
+criterion, and verification item.
 
 Documented bounds: `id` and `revision` are at most 256 characters each; every
 other top-level plan text field and each plan array item is at most 8192
@@ -121,6 +119,7 @@ refused.
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `--root DIR` | required | canonical project directory |
+| `--max-selections N` | 50 | maximum accepted selections |
 | `--max-input-bytes N` | 1048576 | maximum stdin JSON size |
 | `--max-plan-bytes N` | 32768 | fail if the supplied/rendered plan is larger |
 | `--max-file-bytes N` | 2097152 | fail a selection above this file size |
@@ -128,42 +127,51 @@ refused.
 | `--max-excerpt-bytes N` | 16384 | maximum rendered bytes per selection |
 | `--max-total-bytes N` | 131072 | maximum entire pack output |
 
-An oversized plan fails clearly; it is never trimmed. A selection that exceeds
-a line, excerpt-byte, file-size, or total-output limit is listed as
-`UNFULFILLED` with a reason, its content is not emitted, and the process exits
-1. If required unfulfilled reporting itself exceeds the total budget, the pack
-fails instead of dropping that reporting silently. `Pack status` is `COMPLETE`
-only when every requested selection was emitted.
+An oversized plan fails; it's never trimmed. A selection above a line,
+excerpt-byte, file-size, or total-output limit is listed as `UNFULFILLED` with a
+reason. Its content isn't emitted, and the process exits 1. If the required
+`UNFULFILLED` report itself exceeds the total budget, the pack fails rather than
+hiding it. `Pack status` is `COMPLETE` only when every selection was emitted.
 
 ## Safety and trust boundary
 
-Before reading selected content, both commands require a canonical real
-`--root`. A symlinked root, symlinked root ancestor, symlinked path component,
-hard-linked file (`nlink > 1`), non-regular file, binary/NUL or non-UTF-8
-content, and file above the read/size limit are refused. Sensitive locations
-and filenames are rejected case-insensitively before reading, including `.git`,
-`.toolkit-backups`, `.toolkit-state`, `toolkit-state`, `node_modules`, `.ssh`,
-`.aws`, `.gnupg`, `.env`/`.env.*`/`*.env`, credentials/secrets/auth files,
-private-key names, and `*.pem`/`*.key`/`*.p12`/`*.pfx`/`*.jks`/`*.keystore`.
-The same guard is applied to the **root path itself**: a root that is a
-sensitive location, or is nested below a sensitive ancestor such as `.ssh`,
-`.aws`, `.git`, `.env*`, `secrets`, or `credentials`, is refused before content
-reads. Supplying an explicit `--root` does not override this guard, and there is
-no secret override flag. The tools do not scan file contents to guess whether a
-secret exists, so a legitimate input file can still contain an embedded secret;
-review inputs before packing and do not select untrusted data.
+Both commands require a canonical real `--root` before reading selected content.
+They refuse a symlinked root, root ancestor, or path component; a hard-linked file
+(`nlink > 1`); a non-regular file; binary/NUL or non-UTF-8 content; and files above
+the read/size limit.
 
-The canonical root is re-checked component by component, selection files are
-opened with `O_NOFOLLOW`, and `fstat` is applied to the opened descriptor to
-reduce time-of-check/time-of-use exposure. Filesystem changes between checks
-remain a residual operating-system-level risk.
+Sensitive locations and filenames are rejected case-insensitively before reads,
+including `.git`, `.toolkit-backups`, `.toolkit-state`, `toolkit-state`,
+`node_modules`, `.ssh`, `.aws`, `.gnupg`, `.env`/`.env.*`/`*.env`,
+credentials/secrets/auth files, private-key names, and
+`*.pem`/`*.key`/`*.p12`/`*.pfx`/`*.jks`/`*.keystore`.
+
+The **root itself** gets the same guard. A sensitive root, or one below `.ssh`,
+`.aws`, `.git`, `.env*`, `secrets`, or `credentials`, is refused before content
+reads. An explicit `--root` doesn't override this, and there's no secret override.
+The tools don't scan content to guess whether a secret exists, so a legitimate
+file can still contain one. Review inputs before packing; don't select untrusted
+data.
+
+The canonical root is re-checked component by component. Selection files open
+with `O_NOFOLLOW`, and `fstat` runs on the open descriptor to reduce
+time-of-check/time-of-use exposure. Filesystem changes between checks remain an
+OS-level risk.
 
 All plan and excerpt text is **untrusted data, not instructions**. The packer
-does not execute it or follow directives found in it. A pack is a bounded input
-to another step, not an independent review, proof of truth, or authorization.
+doesn't execute it or follow embedded directives. A pack is bounded input for
+another step, not independent review, proof of truth, or authorization.
 
 ## Tests
 
 ```sh
 node --test bundle/tools/context-tools.test.mjs
 ```
+
+## Sources
+
+- [OpenCode V2 docs](https://opencode.ai/v2/docs) describe the surrounding agent,
+  command, skill, and tool-output behavior. These local scripts don't control it.
+- [awesome-llm-token-optimization](https://github.com/pleasedodisturb/awesome-llm-token-optimization)
+  is a reading list for context and cost ideas, not a token measurement or a
+  dependency of this tool.

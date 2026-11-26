@@ -6,42 +6,20 @@ subagent: true
 
 # Update Codemaps Command
 
-Update codemaps to reflect current codebase structure: $ARGUMENTS
+Update codemaps to reflect the current structure: $ARGUMENTS
 
-## Your Task
+Generate or update maps in `docs/CODEMAPS/`:
 
-Generate or update codemaps in `docs/CODEMAPS/` directory:
-
-1. **Analyze codebase structure**
-2. **Generate component maps**
-3. **Document relationships**
-4. **Update navigation guides**
+1. Analyze the codebase structure.
+2. Map components and relationships.
+3. Document dependencies and data flow.
+4. Update navigation guides.
 
 ## Codemap Types
 
-### Architecture Map
-```
-docs/CODEMAPS/ARCHITECTURE.md
-```
-- High-level system overview
-- Component relationships
-- Data flow diagrams
-
-### Module Map
-```
-docs/CODEMAPS/MODULES.md
-```
-- Module descriptions
-- Public APIs
-- Dependencies
-
-### File Map
-```
-docs/CODEMAPS/FILES.md
-```
-- Directory structure
-- File purposes
-- Key files
+- `docs/CODEMAPS/ARCHITECTURE.md`: system overview, components, data flow.
+- `docs/CODEMAPS/MODULES.md`: modules, public APIs, dependencies.
+- `docs/CODEMAPS/FILES.md`: directories, file purposes, key files.
 
 ## Codemap Format
 
@@ -64,18 +42,17 @@ docs/CODEMAPS/FILES.md
 - `ClassName` - [description]
 
 **Usage Example**:
+
 ```typescript
 import { functionName } from '@/module'
 ```
 
 ## Generation Process
 
-1. Scan directory structure
-2. Parse imports/exports
-3. Build dependency graph
-4. Generate markdown maps
-5. Validate links
+1. Scan the directory structure.
+2. Parse imports/exports.
+3. Build the dependency graph.
+4. Generate Markdown maps.
+5. Validate links.
 
----
-
-**TIP**: Keep codemaps updated when adding new modules or significant refactoring.
+Keep codemaps current when modules or major structure change.

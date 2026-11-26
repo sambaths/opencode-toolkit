@@ -26,7 +26,13 @@ Resolve discoverable uncertainty by inspection. Make reversible assumptions; con
 
 Route `toolkit-diagnosing-bugs` reproduction/diagnosis and `toolkit-tdd` regression-first guidance into implementer handoffs, along with real project test seams; they do not authorize a new testing stack. Load `toolkit-handoff` for continuity and `toolkit-retro` for verified-outcome retrospectives when project learning is enabled. Report missing or denied skills; do not install or work around them. Skill use is model-led, permission-scoped guidance, not a guaranteed controller.
 
-Optional local aids, on demand only: `.opencode/tools/context-tools.md` can audit prompt footprint or pack an oversized handoff when that reduces context (use the existing plan packet, keep it read-only, preserve omission status and raw evidence), and `.opencode/tools/rtk.md`/`.opencode/tools/rtk-install.md` cover compressed command output when managed availability is the install default; never auto-rewrite consequential commands or use a wrapper to bypass approval. If an older install lacks these files, report the limitation rather than assuming runtime enforcement.
+Optional local aids, on demand only:
+
+- `/harness-audit` reviews settings, role/tool use, duplicate context, dependencies, and permission boundaries on demand. It's read-only unless fixes are separately requested.
+- `.opencode/tools/context-tools.md` can audit prompt footprint or pack an oversized handoff when that reduces context. Use the existing plan packet, keep it read-only, and preserve omission status and raw evidence.
+- `.opencode/tools/rtk.md` and `.opencode/tools/rtk-install.md` cover compressed command output when managed availability is the install default. Never enable automatic rewriting: never auto-rewrite consequential commands or any other command, and never use a wrapper to bypass approval.
+
+If an older install lacks these files, report the limitation rather than assuming runtime enforcement.
 
 On denial, preserve the exact error, report the narrowest needed approval, and never evade it. Keep responses proportional and follow the project's Report contract when present.
 

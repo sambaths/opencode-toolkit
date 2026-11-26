@@ -6,67 +6,29 @@ subagent: true
 
 # Security Review Command
 
-Conduct a comprehensive security review: $ARGUMENTS
+Review the specified code for security vulnerabilities: $ARGUMENTS
 
-## Your Task
-
-Analyze the specified code for security vulnerabilities following OWASP guidelines and security best practices.
+Use OWASP guidance and the project's security requirements. Check what applies;
+don't claim a category passed if you didn't inspect it.
 
 ## Security Checklist
 
 ### OWASP Top 10
 
-1. **Injection** (SQL, NoSQL, OS command, LDAP)
-   - Check for parameterized queries
-   - Verify input sanitization
-   - Review dynamic query construction
-
-2. **Broken Authentication**
-   - Password storage (bcrypt, argon2)
-   - Session management
-   - Multi-factor authentication
-   - Password reset flows
-
-3. **Sensitive Data Exposure**
-   - Encryption at rest and in transit
-   - Proper key management
-   - PII handling
-
-4. **XML External Entities (XXE)**
-   - Disable DTD processing
-   - Input validation for XML
-
-5. **Broken Access Control**
-   - Authorization checks on every endpoint
-   - Role-based access control
-   - Resource ownership validation
-
-6. **Security Misconfiguration**
-   - Default credentials removed
-   - Error handling doesn't leak info
-   - Security headers configured
-
-7. **Cross-Site Scripting (XSS)**
-   - Output encoding
-   - Content Security Policy
-   - Input sanitization
-
-8. **Insecure Deserialization**
-   - Validate serialized data
-   - Implement integrity checks
-
-9. **Using Components with Known Vulnerabilities**
-   - Run `npm audit`
-   - Check for outdated dependencies
-
-10. **Insufficient Logging & Monitoring**
-    - Security events logged
-    - No sensitive data in logs
-    - Alerting configured
+1. **Injection**: parameterized queries, input sanitization, dynamic query construction.
+2. **Broken authentication**: password storage, sessions, MFA, reset flows.
+3. **Sensitive data exposure**: encryption in transit/at rest, key management, PII handling.
+4. **XXE**: DTD processing and XML input validation.
+5. **Broken access control**: endpoint authorization, roles, resource ownership.
+6. **Security misconfiguration**: default credentials, error leaks, security headers.
+7. **XSS**: output encoding, CSP, input sanitization.
+8. **Insecure deserialization**: serialized-data validation and integrity checks.
+9. **Known-vulnerable components**: dependency audit and outdated packages.
+10. **Insufficient logging/monitoring**: security events, sensitive-data exclusion, alerts.
 
 ### Additional Checks
 
-- [ ] Secrets in code (API keys, passwords)
+- [ ] Secrets in code, including API keys and passwords
 - [ ] Environment variable handling
 - [ ] CORS configuration
 - [ ] Rate limiting
@@ -76,14 +38,15 @@ Analyze the specified code for security vulnerabilities following OWASP guidelin
 ## Report Format
 
 ### Critical Issues
+
 [Issues that must be fixed immediately]
 
 ### High Priority
-[Issues that should be fixed before release]
+
+[Issues to fix before release]
 
 ### Recommendations
+
 [Security improvements to consider]
 
----
-
-**IMPORTANT**: Security issues are blockers. Do not proceed until critical issues are resolved.
+Security issues are blockers. Don't proceed until critical issues are resolved.

@@ -1,9 +1,12 @@
 # OpenCode Toolkit
 
-Reusable project-local OpenCode V2 agents and commands. Node.js 20+ and npm are
-required. OpenCode must already be installed. Provider credentials are not
-included; the installer sets a default thinking/coding model profile that can be
-overridden per project.
+You need repeatable agent behavior without copying prompts between projects.
+This installs project-local OpenCode V2 roles, commands, instructions, and tools.
+It also turns on a few context defaults. Each one has an opt-out.
+
+You need Node.js 20+, npm, Git, and an existing OpenCode install. Provider
+credentials aren't included. The installer sets a thinking/coding model profile
+you can override per project.
 
 ## One-command installation
 
@@ -13,10 +16,11 @@ Run from the project where you want to install or update the toolkit:
 npx --yes github:sambaths/opencode-toolkit --project .
 ```
 
-Installation **replaces matching toolkit files and definitions**, including local
-customizations, except restrictive permission migrations described below. Previous contents are backed up automatically. Unrelated files
-and configuration are retained. No extra overwrite flag or npm publication is
-needed. GitHub package installation requires Git and network access.
+Installation **replaces matching toolkit files and definitions**, including your
+local edits. It backs up previous contents first and keeps unrelated files and
+configuration. Restrictive permission migrations are the exception described
+below. No overwrite flag or npm publication is needed. The GitHub install needs
+Git and network access.
 
 For reproducible installs, use a release tag or commit rather than the moving
 default branch: `npx --yes github:sambaths/opencode-toolkit#COMMIT --project .`
@@ -28,6 +32,50 @@ Preview without writing:
 npx --yes github:sambaths/opencode-toolkit --project . --dry-run
 ```
 
+## Context defaults are on
+
+A fresh install uses these defaults under `.opencode/`:
+
+| Area | Default | Catch |
+| --- | --- | --- |
+| Compaction model | Current session model; no fixed compactor override | It follows the model selected in the session. The installer doesn't check model availability. |
+| `compaction.auto` / `keep.tokens` / `buffer` | `true` / `15000` / `"15%"` | Summaries lose detail. They can recover from a context-length rejection, not oversized fixed instructions. |
+| `compaction.background` | `false` | No speculative summaries, but a due summary can still pause the session while it's written. |
+| `tool_output.max_lines` / `max_bytes` | `2000` / `51200` | Truncation can hide the diagnostic you needed. Full output retention is tool-dependent and managed by OpenCode; don't assume every result can be recovered. Scope commands instead of raising every cap. |
+| Usage audit | `/usage-audit` command and guide | Invoking `opencode api` may start the OpenCode service or use its configured remote server. |
+
+Turn off all three managed areas:
+
+```sh
+npx --yes github:sambaths/opencode-toolkit --project . --no-optimizations
+```
+
+Or choose each one:
+
+| Area | On | Off |
+| --- | --- | --- |
+| Compaction | `--compaction` | `--no-compaction` |
+| Tool output | `--tool-output` | `--no-tool-output` |
+| Usage audit | `--usage-audit` | `--no-usage-audit` |
+
+Usage-audit files have stricter ownership rules. Enabling them fails before any
+writes if pre-existing unmanaged files collide. Pass `--adopt-usage-audit` to back
+up and adopt those files explicitly. On opt-out, unchanged managed files are
+removed; customized files are preserved for manual review.
+
+Use one flag from each pair. `--no-optimizations` doesn't stop manual compaction
+or settings you already configured, and it doesn't skip RTK. Use both
+`--no-optimizations --no-rtk` if you want neither.
+
+Existing user-managed values are preserved. If you customize a toolkit-generated
+value, opting out later needs manual review instead of guessing what to remove.
+If root `opencode.json(c)` already defines a managed optimization key, the
+installer reports the conflict and doesn't shadow it with a local default.
+Ancestor, global, and managed settings can still affect runtime behavior. See
+[configuration](docs/configuration.md) for examples and the precedence catch.
+
+## Managed RTK is installed, not wired in
+
 The default install also provisions managed RTK OSS v1.2.1 at
 `.opencode/vendor/rtk/` from a pinned HTTPS asset; `--no-rtk` is optional and skips
 it. Supported targets: `linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64`,
@@ -37,7 +85,9 @@ PATH entry, or permission change; see [RTK install behavior](bundle/tools/rtk-in
 For local/offline source use, install package dependencies first, then run
 `node /path/to/toolkit/bin/install.mjs --project /path/to/project --no-rtk`.
 `--no-rtk` is the optional opt-out from the default managed RTK download; the
-normal one-command install needs no extra flag.
+normal one-command install needs no extra flag. RTK availability doesn't turn on
+usage: there's no plugin, `rtk init`, automatic command rewriting, PATH entry, or
+permission change.
 
 ## Model profiles
 
@@ -106,15 +156,17 @@ project's tests cannot establish runtime availability.
 
 ## What gets installed
 
-The installer writes `<project>/.opencode/`: 16 custom team roles, 24 retained
-ECC agents (including the build override), model assignments for built-in
-`plan`/`general`/`explore`, 23 commands, their prompts, shared instructions, six
-curated skills, local ledger and context audit/packer tools/tests/evaluator, the
-managed RTK OSS binary, and an ownership manifest. Matching agent/command
-definitions in a project-root `opencode.json(c)` are removed to avoid duplicate
-definitions; unrelated settings and comments remain intact. It never changes
-your project's `AGENTS.md`, global OpenCode configuration, provider settings, or
-application files. Plugins, project history, and machine MCP settings are excluded.
+The installer writes `<project>/.opencode/`: custom team roles, retained ECC
+agents (including the build override), model assignments for built-in
+`plan`/`general`/`explore`, commands and prompts, shared instructions, six curated
+skills, local ledger and context audit/packer tools/tests/evaluator, the managed
+RTK OSS binary, and an ownership manifest. Matching agent/command definitions in
+a project-root `opencode.json(c)` are removed to avoid duplicates; unrelated
+settings and comments stay.
+
+It never changes your project's `AGENTS.md`, global OpenCode configuration,
+provider settings, or application files. Plugins, project history, and
+machine-specific MCP settings aren't included.
 
 Additional skills, Context7, REA, browser tools, language tooling, and model providers are
 optional external dependencies. Agents report missing capabilities rather than
@@ -176,8 +228,13 @@ or `build` for direct implementation.
 - `/orchestrate`: manager inspects directly and delegates bounded implementation.
 - `/code-review`: independent reviewer, findings without fixes.
 - `/council`: two independent rounds in a top-level moderator session.
+- `/usage-audit`: usage report through the configured OpenCode API.
 - `/harness-audit`: evidence-backed configuration audit without a helper script.
 - `/verify`: project-specific checks with honest evidence and limitations.
+
+The `/usage-audit` command and [usage-audit guide](bundle/tools/usage-audit.md)
+own the invocation and privacy details. They aren't copied into the shared
+instructions or manager prompt.
 
 All specialists are leaves; the top-level manager/moderator owns fan-out. Project
 requirements come from that project's instructions. Contradictory project policies
@@ -186,16 +243,17 @@ are surfaced rather than resolved by copying another project's workflow.
 ### Plan-first handoff
 
 Before product, code, or test changes, the manager or planner (thinking tier)
-authors a source-grounded plan: goal/scope/non-goals, affected files and seams,
+writes a source-grounded plan: goal/scope/non-goals, affected files and seams,
 ordered steps, acceptance IDs, baseline/verification commands, risks/assumptions,
-and a repair limit. The manager passes the same plan identity and revision to
-implementers and testers as sufficient scoped excerpts—shared goal, constraints,
-and non-goals; relevant steps, dependencies, interfaces, and owned paths;
-acceptance IDs with expected results; verification commands and evidence; and
-remaining budget—or an existing authorized source. Same plan does not mean
-identical text; an ID alone is insufficient for fresh child contexts, and
-reviewers/testers receive the complete relevant cross-step requirements so an
-excerpt cannot omit constraints or acceptance.
+and a repair limit.
+
+The manager gives implementers and testers the same plan identity and revision,
+as sufficient scoped excerpts: goal, constraints, non-goals, steps, dependencies,
+interfaces, owned paths, acceptance with expected results, verification evidence,
+and remaining budget. An existing authorized source can supply this packet.
+Same plan does not mean identical text; an ID alone is insufficient for a fresh
+child. Reviewers and testers also get the complete relevant cross-step
+requirements so an excerpt can't drop a constraint or acceptance check.
 
 Direct `build`, developer/senior-developer, and implementation-capable retained
 roles check the supplied plan before editing and return missing, stale, or
@@ -330,63 +388,118 @@ directory colliding with a curated ID causes installation to fail before writes,
 rather than silently taking ownership. Previously managed skill updates follow
 the normal replacement/backup policy.
 
+## Uses the OpenCode harness
+
+This toolkit configures and prompts OpenCode; it doesn't replace the harness.
+Best results are on **OpenCode v2.4.1+**. Older V2 still works, but newer
+automation, cache, and background-job improvements are absent.
+
+| Harness feature | How the toolkit uses it | Catch |
+| --- | --- | --- |
+| Native compaction | Sets the model, retention, buffer, and background policy described above. | OpenCode still owns the summary. It's lossy, and this toolkit isn't a second compactor. |
+| Code Mode and MCP | Prefers narrow discovery and bounded results. Machine-specific MCP servers aren't bundled. | A tool call keeps its real effects and permission checks. Code Mode isn't a sandbox. |
+| Snapshots | Leaves recovery to the harness and your authorized workflow. | Creating/restoring a snapshot or worktree is an action, not a read-only audit step. |
+| Queues and inbox | Keeps the manager's task register aligned with steering, ordering, and unfinished work. | Prompt rules don't intercept chat or run a runtime queue. |
+| Background jobs | Lets long work finish, then reconciles the actual result and writer state. | Pausing a task doesn't stop a running process. Don't assume cancellation or success. |
+| Local usage stats | `/usage-audit` reports scoped stats through the configured OpenCode API. | The endpoint is experimental. Invocation may start the service or use a remote server. |
+| Permissions and policies | Keeps project rules conservative and asks before consequential effects. | Inherited config, plugins, and host policy still apply. Static checks don't prove runtime policy. |
+
+Automations, warming, `full_codemode` session interrupt, and floating plugin specs
+(`@latest`, ranges, or branches that update themselves) stay off in the toolkit's
+defaults. They need explicit opt-in. Warming costs real requests; interruption can
+stop other sessions and their jobs; auto-updating plugins change code without a
+fresh review.
+
+See the [harness roadmap](docs/harness-roadmap.md) for the rollout plan and the
+[OpenCode changelog](https://opencode.ai/changelog) for version-specific behavior.
+
+## Learn a new domain without guessing
+
+Use **frame -> retrieve -> model -> probe -> teach-back -> implement/handoff**.
+Frame the decision and unknowns, retrieve primary evidence, build a model of the
+system, probe only what you're authorized to test, explain it back, then implement
+or hand off with the evidence and limits attached.
+
+It's read-only by default. Probes need explicit authorization because they can
+change state, spend money, or touch systems you don't own. The composite
+`toolkit-domain-onramp` skill is documented in the
+[domain-learning guide](docs/domain-learning.md), but it's not bundled yet.
+
+## Long tasks without losing the plot
+
+Keep an interactive manager on the work. Durable state comes from the opt-in
+ledger, not a hidden default.
+
+Take one bounded slice at a time. Checkpoint the goal, acceptance, next action,
+budgets, and open writers before compaction or a restart. Reconcile that checkpoint
+with the current tree and your intent before resuming. An independent reviewer
+checks the result; the implementer's self-checks don't count as independent review.
+Nothing runs unattended by default.
+
+Native job reconciliation and DAG budgets are roadmap items in the
+[long-horizon guide](docs/long-horizon.md), not shipped runtime enforcement.
+
 ## Context and token efficiency
 
-These prompts reduce repeated context and work without weakening planning, tests,
-or independent review. Scoped plan packets, focused reads, proportional delegation,
-evidence reuse, and delta reporting cut repeated source and status text. They are
-instructions, not runtime token controls, quotas, or measured savings.
+Repeated context wastes room. These prompts use scoped plan packets, focused
+reads, proportional delegation, evidence reuse, and delta reports to cut it down.
+They don't weaken planning, tests, or independent review. They're instructions,
+not runtime token controls, quotas, or measured savings.
 
 Prefer native scoped search, Git, JSON, and LSP capabilities when the runtime
-provides them, without adding mandatory dependencies or skills. Default to compact
-handoffs, focused tests, and delta reports while honoring explicit user scope and
-project checks; these are prompt-level defaults, not a guarantee an agent runtime
-follows them.
+provides them, without adding mandatory dependencies or skills. Compact handoffs,
+focused tests, and delta reports are prompt-level defaults, not a guarantee an agent runtime follows them.
+Your scope and the project's checks still win.
 
 Concise-agent defaults affect visible output and repeated context, not guaranteed
-internal reasoning or cost savings. They are prompt-level guidance, not a full
-Caveman skill installation or a global short mode; project Report contracts,
-required evidence, and user-specified verbosity still govern.
+internal reasoning or cost savings. They aren't a full Caveman skill install or a
+global short mode. Project Report contracts, required evidence, and your requested
+verbosity still apply.
 
 Primary platform sources (checked 2026-11-25):
 
 - [Compaction limits](https://opencode.ai/docs/compaction#limits): fixed tool and
-  instruction overhead remains even after compaction.
+  instruction overhead remains after compaction.
 - [Background compaction](https://opencode.ai/docs/compaction#background-compaction):
-  default on; summaries are lossy and cost tokens to produce. Disabling speculative
-  background summaries is optional, not a guaranteed saving. This toolkit has no
-  native compaction or token controller.
-- [Skills loading](https://opencode.ai/docs/skills#loading): skill metadata is
-  advertised, bodies load on demand, and support files are not auto-loaded.
+  upstream defaults it on. Summaries are lossy and cost tokens to make. This
+  toolkit turns speculative background summaries off. It has no native compaction
+  or token controller.
+- [Skills loading](https://opencode.ai/docs/skills#loading): metadata is
+  advertised, bodies load on demand, and support files aren't auto-loaded.
 - [Prompt caching](https://opencode.ai/docs/models#prompt-caching) and
-  [Gemini caching](https://ai.google.dev/gemini-api/docs/caching): stable common
-  prefixes can help best-effort cached billing and latency. Caching does not reduce
-  logical tokens or context, and padding prompts to trigger it is counterproductive.
-  Gemini ignores OpenCode's `cache.ttl`. DeepSeek's
-  [automatic prefix caching](https://api-docs.deepseek.com/guides/kv_cache) does not
-  establish behavior or billing on this OpenCode route.
-- [Tool output limits](https://opencode.ai/docs/config#output): optional caps can
-  hide diagnostics; prefer scoped commands and bounded reads.
-- [Warming](https://opencode.ai/docs/warming): real billable requests; disabled by
-  default and left unchanged.
+  [Gemini caching](https://ai.google.dev/gemini-api/docs/caching): stable prefixes
+  can help best-effort cached billing and latency. Caching does not reduce logical tokens or context.
+  Padding prompts to trigger it is counterproductive. Gemini ignores OpenCode's `cache.ttl`.
+  DeepSeek's [automatic prefix caching](https://api-docs.deepseek.com/guides/kv_cache) does not establish behavior or billing on this OpenCode route.
+- [Tool output limits](https://opencode.ai/docs/config#output): caps can hide
+  diagnostics. Prefer scoped commands and bounded reads.
+- [Warming](https://opencode.ai/docs/warming): warming sends real billable
+  requests. It's disabled by default and left unchanged.
 - [MCP servers](https://opencode.ai/docs/mcp-servers): Code Mode is already the
-  default; discover narrowly and return only needed data.
+  default. Discover narrowly and return only what the task needs.
 
 Optional local aids:
 
 - [Context footprint audit and scoped packer](bundle/tools/context-tools.md): the
   audit reports UTF-8 source bytes, not tokens or live request loads; the packer
-  reports what it omits. These are local tools, not a plan author, quality
+  reports what it omits. These local tools are not a plan author, quality
   enforcer, or runtime controller.
-- [RTK OSS binary guide](bundle/tools/rtk.md) and [install behavior](bundle/tools/rtk-install.md):
-  the same single `npx` installation auto-provisions the managed RTK OSS binary,
-  with no extra steps, and safe optimization behavior is the default. Automatic RTK
-  command rewriting, plugin installation, and `init` remain OFF because upstream
-  permission discovery does not read `.opencode/opencode.json(c)`; no runtime
-  rewrite integration is claimed.
+- [RTK OSS binary guide](bundle/tools/rtk.md) and
+  [install behavior](bundle/tools/rtk-install.md): the same single `npx` installation auto-provisions the managed RTK OSS binary, with no extra steps.
+  The binary is default-on; all rewrite integration is off. Automatic RTK command rewriting, plugin installation, and `init` remain OFF
+  because upstream permission discovery does not read `.opencode/opencode.json(c)`. Runtime behavior and security weren't audited here.
 
-Default model flags, provider settings, and existing behavior stay unchanged. This
-documentation makes no percentage-savings or runtime-enforcement promise.
+Default model flags, provider settings, and existing behavior stay unchanged. I
+make no percentage-savings or runtime-enforcement promise.
+
+## Project files
+
+- [ATTRIBUTION.md](ATTRIBUTION.md) maps borrowed material to its source and license.
+- [NOTICE.md](NOTICE.md) keeps the provenance and upstream notices together.
+- [CONTRIBUTING.md](CONTRIBUTING.md) covers plans, local checks, and pull requests.
+- [SUPPORT.md](SUPPORT.md) says where to ask and what to include.
+- [SECURITY.md](SECURITY.md) covers private reports and supported versions.
+- [LICENSE](LICENSE) covers this toolkit's MIT license.
 
 ## Development and verification
 
@@ -410,5 +523,29 @@ expiry/invalidation, approval/revocation, concurrent writers, and path protectio
 The existing skill evaluator scores supplied manifests, not live model runs.
 
 Maintainers can re-export the explicit allowlist with
-`node scripts/export.mjs /path/to/source/.opencode`; inspect the resulting diff
-before committing. See NOTICE.md and LICENSE for upstream attribution.
+`node scripts/export.mjs /path/to/source/.opencode`. Inspect the diff before
+committing. See [NOTICE.md](NOTICE.md) and [LICENSE](LICENSE) for upstream
+attribution.
+
+## Sources
+
+I borrowed good ideas, checked the primary docs, and kept the license trail. I
+didn't copy claims about savings and call them measurements.
+
+- [OpenCode V2 docs](https://opencode.ai/v2/docs) are the platform reference for
+  agents, commands, skills, compaction, permissions, and tool output. Upstream
+  defaults can change; this README states what the toolkit manages.
+- [Everything Claude Code](https://github.com/affaan-m/ECC) supplied retained
+  agent prompts, command templates, and the skill evaluator.
+- [Matt Pocock's skills](https://github.com/mattpocock/skills) supplied the six
+  adapted skills. The bundle pins commit
+  `abeeaf95660ba9e8b7c753eb38f441ca707a8823`.
+- [RTK](https://github.com/rtk-ai/rtk) and its
+  [v1.2.1 release](https://github.com/rtk-ai/rtk/releases/tag/v1.2.1) document the
+  managed OSS binary, filtering, recall, and integration limits.
+- [awesome-llm-token-optimization](https://github.com/pleasedodisturb/awesome-llm-token-optimization)
+  is a useful reading list, not evidence that this toolkit saves a fixed number
+  of tokens.
+
+[ATTRIBUTION.md](ATTRIBUTION.md) has the detailed map. [NOTICE.md](NOTICE.md) has
+the provenance and license notices.

@@ -1,6 +1,6 @@
 {
   "name": "opencode-toolkit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Portable project-local OpenCode agent and command toolkit",
   "type": "module",
   "license": "MIT",
@@ -8,7 +8,7 @@
   "homepage": "https://github.com/sambaths/opencode-toolkit#readme",
   "bugs": { "url": "https://github.com/sambaths/opencode-toolkit/issues" },
   "bin": { "opencode-toolkit": "bin/install.mjs" },
-  "files": ["bin/", "lib/", "bundle/", "LICENSE", "NOTICE.md", "README.md"],
+  "files": ["bin/", "lib/", "bundle/", "LICENSE", "NOTICE.md", "README.md", "ATTRIBUTION.md", "CHANGELOG.md", "docs/"],
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "test:coverage": "node --test --experimental-test-coverage test/*.test.mjs",

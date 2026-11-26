@@ -3,7 +3,7 @@
 // network access, dependencies, or imports from the installer's lib/ directory.
 import { createHash } from 'node:crypto'
 import {
-  closeSync, constants as fsConstants, fstatSync, lstatSync, openSync,
+  closeSync, constants as fsConstants, existsSync, fstatSync, lstatSync, openSync,
   opendirSync, readSync, realpathSync,
 } from 'node:fs'
 import path from 'node:path'
@@ -33,8 +33,12 @@ const CAPS = {
 const REPETITION = { minParagraphChars: 80, maxGroups: 20, occurrenceLimit: 20 }
 const MAX_SCAN_ENTRIES = 10000
 const PLAN_FIELDS = new Set(['id', 'revision', 'goal', 'constraints', 'steps', 'acceptance', 'verification', 'scope', 'ownership', 'dependencies', 'risks', 'budget'])
-const SENSITIVE_DIRS = new Set(['.git', '.hg', '.svn', '.toolkit-backups', '.toolkit-state', 'toolkit-state', 'node_modules', '.ssh', '.aws', '.azure', '.gcloud', '.gnupg', '.kube', '.password-store'])
-const SENSITIVE_NAME = /^(?:credentials?(?:[.-].*)?|secrets?(?:[.-].*)?|\.?auth(?:\.(?:json|ya?ml|toml))?|\.netrc|\.npmrc|\.pypirc|\.git-credentials|\.htpasswd|id_(?:rsa|dsa|ecdsa|ed25519)(?:\.pub)?|.*private[-_]?key(?:[.-].*)?|.*\.(?:pem|key|p12|pfx|jks|keystore|kdbx))$/i
+const SENSITIVE_DIRS = new Set(['.git', '.hg', '.svn', '.toolkit-backups', '.toolkit-state', 'toolkit-state', 'node_modules', '.ssh', '.aws', '.azure', '.gcloud', '.gnupg', '.kube', '.password-store', '.envrc'])
+const SENSITIVE_NAME = /^(?:credentials?(?:[.-].*)?|secrets?(?:[.-].*)?|\.?auth(?:\.(?:json|ya?ml|toml))?|\.envrc(?:\..*)?|\.netrc|\.npmrc|\.pypirc|\.git-credentials|\.htpasswd|id_(?:rsa|dsa|ecdsa|ed25519)(?:\.pub)?|.*private[-_]?key(?:[.-].*)?|.*\.(?:pem|key|p12|pfx|jks|keystore|kdbx))$/i
+const FD_ALIAS_ROOT = process.platform === 'linux' ? '/proc/self/fd' : '/dev/fd'
+const HAS_FD_ALIAS = existsSync(FD_ALIAS_ROOT)
+const DIRECTORY_FLAGS = fsConstants.O_RDONLY | (fsConstants.O_DIRECTORY ?? 0) | (fsConstants.O_NOFOLLOW ?? 0)
+const fdAlias = (fd, fallback) => HAS_FD_ALIAS ? path.join(FD_ALIAS_ROOT, String(fd)) : fallback
 
 class InputError extends Error {}
 class Reject extends Error {}
@@ -93,6 +97,24 @@ function positiveInt(value, name, max) {
   return number
 }
 
+function portableSegments(relative) {
+  if (typeof relative !== 'string' || !relative || relative.includes('\0') || path.isAbsolute(relative) || path.win32.isAbsolute(relative) || /^[A-Za-z]:/.test(relative)) {
+    throw new Reject('absolute path refused')
+  }
+  const portable = relative.replaceAll('\\', '/')
+  const segments = portable.split('/')
+  if (path.posix.normalize(portable) !== portable || segments.some(segment => !segment || segment === '.' || segment === '..' || /[. ]$/.test(segment))) {
+    throw new Reject('traversal or non-canonical path refused (including Windows aliases)')
+  }
+  return segments
+}
+
+function normalizeRelativePath(relative) {
+  if (typeof relative !== 'string' || !relative.trim()) throw new Reject('empty path refused')
+  if (relative.includes('\0')) throw new Reject('NUL byte in path refused')
+  return portableSegments(relative).join(path.sep)
+}
+
 function parseCli(argv) {
   const command = argv[0]
   if (!command || ['help', '--help', '-h'].includes(command)) return { kind: 'help' }
@@ -136,7 +158,7 @@ function resolveRoot(input) {
   if (realpathSync(root) !== root) throw new InputError('--root must be a canonical real path (no symlinked ancestors)')
   const sensitive = sensitiveRootComponent(root)
   if (sensitive) throw new InputError(`refusing sensitive root location: ${sensitive}`)
-  return root
+  return { root, identity: stat }
 }
 
 function isSensitive(relative) {
@@ -144,13 +166,15 @@ function isSensitive(relative) {
   for (const segment of segments) {
     const lower = segment.toLowerCase()
     if (SENSITIVE_DIRS.has(lower)) return true
+    if (SENSITIVE_NAME.test(lower)) return true
     if (lower === '.env' || lower.startsWith('.env.') || lower.endsWith('.env') || lower.includes('.env.')) return true
   }
-  return SENSITIVE_NAME.test(segments.at(-1).toLowerCase())
+  return false
 }
 
 function sensitiveRootComponent(root) {
   for (const segment of root.split(path.sep).filter(Boolean)) {
+    if (/[. ]$/.test(segment)) return segment
     const lower = segment.toLowerCase()
     if (SENSITIVE_DIRS.has(lower) || lower === '.env' || lower.startsWith('.env.') ||
         lower.endsWith('.env') || lower.includes('.env.') || SENSITIVE_NAME.test(lower)) return segment
@@ -159,51 +183,187 @@ function sensitiveRootComponent(root) {
 }
 
 function checkRelative(root, relative) {
-  if (typeof relative !== 'string' || !relative.trim()) throw new Reject('empty path refused')
-  if (relative.includes('\0')) throw new Reject('NUL byte in path refused')
-  if (path.isAbsolute(relative) || /^[A-Za-z]:[\\/]/.test(relative)) throw new Reject('absolute path refused')
   const segments = relative.split(path.sep)
-  if (segments.some(segment => segment === '' || segment === '.' || segment === '..')) throw new Reject('traversal or non-canonical path refused')
-  if (path.normalize(relative) !== relative) throw new Reject('non-canonical path refused')
-  if (isSensitive(relative)) throw new Reject('sensitive path refused before read')
-  const absolute = path.join(root, relative)
+  if (isSensitive(segments.join('/'))) throw new Reject('sensitive path refused before read')
+  const absolute = path.join(root, ...segments)
   const inside = path.relative(root, absolute)
-  if (inside.startsWith('..') || path.isAbsolute(inside)) throw new Reject('path escapes root')
+  if (inside === '..' || inside.startsWith(`..${path.sep}`) || path.isAbsolute(inside)) throw new Reject('path escapes root')
   return absolute
 }
 
-function walkRelative(root, relative, { missingOk = false } = {}) {
-  const segments = relative.split(path.sep)
-  let current = root
-  for (let index = 0; index < segments.length; index++) {
-    current = path.join(current, segments[index])
-    let stat
-    try { stat = lstatSync(current) } catch (error) {
-      if (error.code === 'ENOENT' && missingOk) return null
-      if (error.code === 'ENOENT') throw new Reject('path not found')
-      throw new Reject(`cannot inspect path: ${error.code ?? error.message}`)
-    }
-    if (stat.isSymbolicLink()) throw new Reject('symlink path component refused')
-    if (index < segments.length - 1 && !stat.isDirectory()) throw new Reject('path component is not a directory')
-    if (index === segments.length - 1) return stat
-  }
-  return lstatSync(root)
+function sameIdentity(left, right) {
+  return left.dev === right.dev && left.ino === right.ino
 }
 
-function readSafe(absolute, maxBytes) {
+function closeOwned(handle) {
+  if (!handle?.owned) return
+  handle.owned = false
+  closeSync(handle.fd)
+}
+
+function openRootHandle(root, expected) {
+  if (!expected || !expected.isDirectory()) throw new InputError('--root identity changed before inspection')
+  if (!HAS_FD_ALIAS) {
+    let fd
+    try { fd = openSync(root, DIRECTORY_FLAGS) } catch (error) {
+      throw new InputError(`--root is not accessible: ${error.code ?? error.message}`)
+    }
+    const opened = fstatSync(fd)
+    if (!opened.isDirectory() || !sameIdentity(opened, expected)) {
+      closeSync(fd)
+      throw new InputError('--root identity changed during inspection')
+    }
+    return { fd, alias: root, path: root, owned: false }
+  }
+  const parsed = path.parse(root)
+  let fd
+  let resolvedPath = parsed.root
+  try { fd = openSync(parsed.root, DIRECTORY_FLAGS) } catch (error) {
+    throw new InputError(`--root is not accessible: ${error.code ?? error.message}`)
+  }
+  let alias = fdAlias(fd, resolvedPath)
+  try {
+    for (const segment of root.slice(parsed.root.length).split(path.sep).filter(Boolean)) {
+      const nextPath = path.join(alias, segment)
+      const nextResolved = path.join(resolvedPath, segment)
+      let component
+      try { component = lstatSync(nextPath) } catch (error) {
+        throw new InputError(`--root is not accessible: ${error.code ?? error.message}`)
+      }
+      if (component.isSymbolicLink() || !component.isDirectory()) {
+        throw new InputError('refusing a symlinked or non-directory root path component')
+      }
+      let nextFD
+      try { nextFD = openSync(nextPath, DIRECTORY_FLAGS) } catch (error) {
+        if (error.code === 'ELOOP') throw new InputError('refusing a symlinked root path component')
+        throw new InputError(`--root is not accessible: ${error.code ?? error.message}`)
+      }
+      const opened = fstatSync(nextFD)
+      if (!opened.isDirectory() || !sameIdentity(opened, component)) {
+        closeSync(nextFD)
+        throw new InputError('--root identity changed during inspection')
+      }
+      closeSync(fd)
+      fd = nextFD
+      resolvedPath = nextResolved
+      alias = fdAlias(fd, resolvedPath)
+    }
+    const opened = fstatSync(fd)
+    if (!opened.isDirectory() || !sameIdentity(opened, expected)) {
+      closeSync(fd); fd = undefined
+      throw new InputError('--root canonical identity changed before read')
+    }
+    return { fd, alias, path: root, owned: false }
+  } catch (error) {
+    if (fd !== undefined) closeSync(fd)
+    throw error
+  }
+}
+
+function closeRootHandle(handle) {
+  if (typeof handle.fd === 'number') closeSync(handle.fd)
+}
+
+function openRelativeDirectory(rootHandle, relative, { missingOk = false } = {}) {
+  const segments = relative.split(path.sep).filter(Boolean)
+  if (!HAS_FD_ALIAS) {
+    let currentPath = rootHandle.path
+    if (!segments.length) return { fd: undefined, alias: currentPath, path: currentPath, owned: false }
+    for (const segment of segments) {
+      const nextPath = path.join(currentPath, segment)
+      let stat
+      try { stat = lstatSync(nextPath) } catch (error) {
+        if (error.code === 'ENOENT' && missingOk) return null
+        if (error.code === 'ENOENT') throw new Reject('path not found')
+        throw new Reject(`cannot inspect path: ${error.code ?? error.message}`)
+      }
+      if (stat.isSymbolicLink()) throw new Reject('symlink path component refused')
+      if (!stat.isDirectory()) throw new Reject('path component is not a directory')
+      currentPath = nextPath
+    }
+    return { fd: undefined, alias: currentPath, path: currentPath, owned: false }
+  }
+  let current = rootHandle
+  if (!segments.length) return { fd: rootHandle.fd, alias: rootHandle.alias, path: rootHandle.path, owned: false }
+  try {
+    for (const segment of segments) {
+      const nextPath = path.join(current.alias, segment)
+      let stat
+      try { stat = lstatSync(nextPath) } catch (error) {
+        if (error.code === 'ENOENT' && missingOk) { closeOwned(current); return null }
+        if (error.code === 'ENOENT') throw new Reject('path not found')
+        throw new Reject(`cannot inspect path: ${error.code ?? error.message}`)
+      }
+      if (stat.isSymbolicLink()) throw new Reject('symlink path component refused')
+      if (!stat.isDirectory()) throw new Reject('path component is not a directory')
+      let nextFD
+      try { nextFD = openSync(nextPath, DIRECTORY_FLAGS) } catch (error) {
+        if (error.code === 'ELOOP') throw new Reject('symlink path component refused')
+        throw new Reject(`cannot open directory: ${error.code ?? error.message}`)
+      }
+      const opened = fstatSync(nextFD)
+      if (!opened.isDirectory() || !sameIdentity(opened, stat)) {
+        closeSync(nextFD)
+        throw new Reject('directory identity changed during inspection')
+      }
+      const parentPath = current.path
+      const childPath = path.join(parentPath, segment)
+      closeOwned(current)
+      current = { fd: nextFD, alias: fdAlias(nextFD, childPath), path: childPath, owned: true }
+    }
+    return current
+  } catch (error) {
+    closeOwned(current)
+    throw error
+  }
+}
+
+function openRelativeEntry(rootHandle, relative, { missingOk = false } = {}) {
+  const segments = relative.split(path.sep).filter(Boolean)
+  if (!segments.length) throw new Reject('path refused')
+  const directory = openRelativeDirectory(rootHandle, segments.slice(0, -1).join(path.sep), { missingOk })
+  if (!directory) return null
+  const entryPath = path.join(directory.alias, segments.at(-1))
+  let stat
+  try { stat = lstatSync(entryPath) } catch (error) {
+    closeOwned(directory)
+    if (error.code === 'ENOENT' && missingOk) return null
+    if (error.code === 'ENOENT') throw new Reject('path not found')
+    throw new Reject(`cannot inspect path: ${error.code ?? error.message}`)
+  }
+  if (stat.isSymbolicLink()) { closeOwned(directory); throw new Reject('symlink path component refused') }
+  return { stat, path: entryPath, directory }
+}
+
+function closeEntry(entry) {
+  closeOwned(entry.directory)
+}
+
+function walkRelative(rootHandle, relative, { missingOk = false } = {}) {
+  const entry = openRelativeEntry(rootHandle, relative, { missingOk })
+  if (!entry) return null
+  try { return entry.stat } finally { closeEntry(entry) }
+}
+
+function readSafe(rootHandle, relative, maxBytes) {
+  const entry = openRelativeEntry(rootHandle, relative)
   let fd
   try {
-    fd = openSync(absolute, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0) | (fsConstants.O_NONBLOCK ?? 0) | (fsConstants.O_NOCTTY ?? 0))
-  } catch (error) {
-    if (error.code === 'ENOENT') throw new Reject('file not found')
-    if (error.code === 'ELOOP') throw new Reject('symlink refused')
-    throw new Reject(`cannot open file: ${error.code ?? error.message}`)
-  }
-  try {
+    const expected = entry.stat
+    if (!expected.isFile()) throw new Reject('not a regular file')
+    if (expected.nlink !== 1) throw new Reject('hard-linked file refused')
+    if (expected.size > maxBytes) throw new Reject(`file size ${expected.size} exceeds ${maxBytes}-byte limit`)
+    try {
+      fd = openSync(entry.path, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0) | (fsConstants.O_NONBLOCK ?? 0) | (fsConstants.O_NOCTTY ?? 0))
+    } catch (error) {
+      if (error.code === 'ENOENT') throw new Reject('file not found')
+      if (error.code === 'ELOOP') throw new Reject('symlink refused')
+      throw new Reject(`cannot open file: ${error.code ?? error.message}`)
+    }
     const stat = fstatSync(fd)
-    if (!stat.isFile()) throw new Reject('not a regular file')
-    if (stat.nlink !== 1) throw new Reject('hard-linked file refused')
-    if (stat.size > maxBytes) throw new Reject(`file size ${stat.size} exceeds ${maxBytes}-byte limit`)
+    if (!stat.isFile() || stat.nlink !== 1 || !sameIdentity(stat, expected)) {
+      throw new Reject('file identity changed during inspection')
+    }
     const chunks = []
     let total = 0
     const buffer = Buffer.allocUnsafe(64 * 1024)
@@ -223,7 +383,8 @@ function readSafe(absolute, maxBytes) {
     }
     return { text, bytes: total }
   } finally {
-    closeSync(fd)
+    if (fd !== undefined) closeSync(fd)
+    closeEntry(entry)
   }
 }
 
@@ -257,7 +418,13 @@ function paragraphs(text, minChars) {
 }
 
 function audit(options) {
-  const root = resolveRoot(options.root)
+  const resolved = resolveRoot(options.root)
+  const root = resolved.root
+  const rootHandle = openRootHandle(root, resolved.identity)
+  try { return auditRoot(root, rootHandle, options) } finally { closeRootHandle(rootHandle) }
+}
+
+function auditRoot(root, rootHandle, options) {
   const limits = {
     maxFiles: options.maxFiles, maxTotalBytes: options.maxTotalBytes,
     maxFileBytes: options.maxFileBytes, maxOutputBytes: options.maxOutputBytes,
@@ -267,10 +434,12 @@ function audit(options) {
   let scanTruncated = false
   let scanned = 0
   for (const [directory, , extension] of SOURCES) {
-    const stat = walkRelative(root, directory, { missingOk: true })
+    const stat = walkRelative(rootHandle, directory, { missingOk: true })
     if (!stat) continue
     if (!stat.isDirectory()) throw new InputError(`expected prompt-source directory: ${directory}`)
-    const handle = opendirSync(path.join(root, directory))
+    const directoryHandle = openRelativeDirectory(rootHandle, directory)
+    let handle
+    try { handle = opendirSync(directoryHandle.alias) } catch (error) { closeOwned(directoryHandle); throw error }
     const entries = []
     try {
       for (;;) {
@@ -281,6 +450,7 @@ function audit(options) {
       }
     } finally {
       handle.closeSync()
+      closeOwned(directoryHandle)
     }
     entries.sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0)
     for (const entry of entries) {
@@ -301,7 +471,7 @@ function audit(options) {
   const repetitionCandidates = []
   let totalBytes = 0
   for (const relative of included) {
-    const stat = walkRelative(root, relative)
+    const stat = walkRelative(rootHandle, relative)
     if (!stat.isFile()) throw new InputError(`prompt source is not a regular file: ${relative}`)
     if (stat.nlink !== 1) throw new InputError(`refusing hard-linked prompt source: ${relative}`)
     if (totalBytes + stat.size > limits.maxTotalBytes) {
@@ -314,7 +484,7 @@ function audit(options) {
       truncated.repetition = true
       continue
     }
-    const read = readSafe(path.join(root, relative), limits.maxFileBytes)
+    const read = readSafe(rootHandle, relative, limits.maxFileBytes)
     if (totalBytes + read.bytes > limits.maxTotalBytes) {
       omittedFiles++; omittedBytes += read.bytes; truncated.bytes = true; continue
     }
@@ -560,7 +730,13 @@ function renderPack(planBlock, fulfilled, unfulfilled) {
 }
 
 function pack(options) {
-  const root = resolveRoot(options.root)
+  const resolved = resolveRoot(options.root)
+  const root = resolved.root
+  const rootHandle = openRootHandle(root, resolved.identity)
+  try { return packRoot(root, rootHandle, options) } finally { closeRootHandle(rootHandle) }
+}
+
+function packRoot(root, rootHandle, options) {
   const limits = {
     maxInputBytes: options.maxInputBytes, maxPlanBytes: options.maxPlanBytes, maxFileBytes: options.maxFileBytes,
     maxExcerptLines: options.maxExcerptLines, maxExcerptBytes: options.maxExcerptBytes,
@@ -586,19 +762,18 @@ function pack(options) {
       unfulfilled.push({ ...label, reason: `requested ${rangeLines} lines exceeds --max-excerpt-lines ${limits.maxExcerptLines}` })
       continue
     }
-    let absolute
-    try { absolute = checkRelative(root, selection.path) } catch (error) {
+    let relative
+    try { relative = normalizeRelativePath(selection.path) } catch (error) {
       if (error instanceof Reject) { unfulfilled.push({ ...label, reason: error.message }); continue }
       throw error
     }
-    let stat
-    try { stat = walkRelative(root, selection.path) } catch (error) {
+    const normalized = { ...selection, path: relative }
+    try { checkRelative(root, relative) } catch (error) {
       if (error instanceof Reject) { unfulfilled.push({ ...label, reason: error.message }); continue }
       throw error
     }
-    if (!stat.isFile()) { unfulfilled.push({ ...label, reason: 'not a regular file' }); continue }
     let read
-    try { read = readSafe(absolute, limits.maxFileBytes) } catch (error) {
+    try { read = readSafe(rootHandle, relative, limits.maxFileBytes) } catch (error) {
       if (error instanceof Reject) { unfulfilled.push({ ...label, reason: error.message }); continue }
       throw error
     }
@@ -613,7 +788,7 @@ function pack(options) {
     if (Buffer.byteLength(body) > limits.maxExcerptBytes) {
       unfulfilled.push({ ...label, reason: `rendered excerpt exceeds --max-excerpt-bytes ${limits.maxExcerptBytes}` }); continue
     }
-    fulfilled.push({ selection, body })
+    fulfilled.push({ selection: normalized, body })
   }
 
   let output = renderPack(planBlock, fulfilled, unfulfilled)

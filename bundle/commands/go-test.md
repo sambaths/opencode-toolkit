@@ -6,16 +6,16 @@ subagent: true
 
 # Go Test Command
 
-Implement using Go TDD methodology: $ARGUMENTS
+Implement this with Go TDD: $ARGUMENTS
 
 ## Your Task
 
-Apply test-driven development with Go idioms:
+Use Go idioms and the project's existing test conventions:
 
-1. **Define types** - Interfaces and structs
-2. **Write table-driven tests** - Comprehensive coverage
-3. **Implement minimal code** - Pass the tests
-4. **Benchmark** - Verify performance
+1. **Define types**: interfaces and structs.
+2. **Write table-driven tests** for the requested behavior.
+3. **Implement minimal code** that passes.
+4. **Benchmark** when performance is part of the request.
 
 ## TDD Cycle for Go
 
@@ -128,4 +128,4 @@ package/
 
 ---
 
-**TIP**: Use `testify/assert` for cleaner assertions, or stick with stdlib for simplicity.
+Use `testify/assert` only if the project already uses it. The standard library is fine.

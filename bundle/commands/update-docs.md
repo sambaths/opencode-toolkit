@@ -6,62 +6,50 @@ subagent: true
 
 # Update Docs Command
 
-Update documentation to reflect recent changes: $ARGUMENTS
+Update docs for recent changes: $ARGUMENTS
 
 ## Your Task
 
-1. **Identify changed code** - `git diff --name-only`
-2. **Find related docs** - README, API docs, guides
-3. **Update documentation** - Keep in sync with code
-4. **Verify accuracy** - Docs match implementation
+1. Identify changed code, such as `git diff --name-only`.
+2. Find related README, API, and guide files.
+3. Update them to match the implementation.
+4. Verify commands, examples, links, and version claims.
 
 ## Documentation Types
 
 ### README.md
-- Installation instructions
-- Quick start guide
+
+- Installation and quick start
 - Feature overview
 - Configuration options
 
 ### API Documentation
-- Endpoint descriptions
-- Request/response formats
-- Authentication details
-- Error codes
+
+- Endpoints and request/response formats
+- Authentication and error codes
 
 ### Code Comments
-- JSDoc for public APIs
+
+- Public API docs such as JSDoc
 - Complex logic explanations
-- TODO/FIXME cleanup
+- Relevant TODO/FIXME cleanup
 
 ### Guides
+
 - How-to tutorials
-- Architecture decisions (ADRs)
-- Troubleshooting guides
+- Architecture decisions
+- Troubleshooting
 
 ## Update Checklist
 
-- [ ] README reflects current features
-- [ ] API docs match endpoints
-- [ ] JSDoc updated for changed functions
-- [ ] Examples are working
-- [ ] Links are valid
-- [ ] Version numbers updated
+- [ ] README reflects current features.
+- [ ] API docs match endpoints.
+- [ ] JSDoc covers changed functions.
+- [ ] Examples work.
+- [ ] Links resolve.
+- [ ] Version numbers match.
 
-## Documentation Quality
+Good docs are accurate, concise, current, and clear about edge cases. Avoid stale
+information, missing parameters, broken examples, and ambiguous language.
 
-### Good Documentation
-- Accurate and up-to-date
-- Clear and concise
-- Has working examples
-- Covers edge cases
-
-### Avoid
-- Outdated information
-- Missing parameters
-- Broken examples
-- Ambiguous language
-
----
-
-**IMPORTANT**: Documentation should be updated alongside code changes, not as an afterthought.
+Update docs alongside code changes, not as an afterthought.

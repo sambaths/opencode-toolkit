@@ -2,14 +2,15 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
   existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync,
-  symlinkSync, writeFileSync,
+  symlinkSync, renameSync, writeFileSync,
 } from 'node:fs';
 import { createServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { deflateRawSync, gzipSync } from 'node:zlib';
 import test from 'node:test';
-import { main } from '../lib/rtk-cli.mjs';
+import { main, parseArgs } from '../lib/rtk-cli.mjs';
+import { TOOLKIT_VERSION } from '../lib/install.mjs';
 import { provisionRtk, rtkStatus, RTK_METADATA_FILE } from '../lib/rtk.mjs';
 import { downloadRtkArchive } from '../lib/rtk-download.mjs';
 import {
@@ -155,8 +156,9 @@ test('downloader follows bounded HTTPS redirects, verifies SHA-256, and does not
   const archive = Buffer.from('pinned archive payload');
   const target = { ...linux, sha256: hash(archive) };
   let calls = 0;
-  const fetchImpl = async url => {
+  const fetchImpl = async (url, options) => {
     calls++;
+    assert.equal(options.headers['user-agent'], `opencode-toolkit-rtk-installer/${TOOLKIT_VERSION}`);
     if (calls === 1) {
       assert.equal(url.hostname, 'github.com');
       return new Response(null, {
@@ -351,6 +353,20 @@ test('provisioning installs a pinned managed RTK layout and reuses it without a 
   assert.equal(verified.downloaded, false);
   assert.deepEqual(readFileSync(path.join(directory, 'rtk')), binary);
   assert.equal(readFileSync(path.join(directory, 'LICENSE'), 'utf8'), 'Apache License 2.0 fixture');
+});
+
+test('POSIX RTK staging uses an anchored directory during an induced vendor parent swap', { skip: process.platform !== 'linux' }, async t => {
+  const project = projectFixture(t); const archive = tarArchive(); const target = fixtureTarget(linux, archive);
+  const vendor = path.join(project, '.opencode/vendor'); mkdirSync(vendor, { recursive: true });
+  const held = path.join(project, 'held-vendor'); const external = path.join(project, 'external-vendor'); mkdirSync(external);
+  const victim = path.join(external, 'rtk'); writeFileSync(victim, 'EXTERNAL RTK VICTIM');
+  await assert.rejects(provisionRtk({
+    project, target, fetchImpl: async () => response(archive), validateToolkit: noValidation,
+    hooks: { afterStageTemp: () => { renameSync(vendor, held); symlinkSync(external, vendor, 'dir'); } },
+  }), /RTK activation|staged|missing|unsafe|symlink/i);
+  assert.equal(readFileSync(victim, 'utf8'), 'EXTERNAL RTK VICTIM');
+  assert.equal(readdirSync(external).some(name => name.includes('.rtk-staging')), false);
+  assert.equal(readdirSync(held).some(name => name.includes('.tmp')), false);
 });
 
 test('provisioning installs the Windows zip target with rtk.exe', async t => {
@@ -652,4 +668,46 @@ test('rtkStatus reports absent, verified, stale and unsupported states without w
   assert.equal(rtkStatus({ project, target }).state, 'verified');
   writeFileSync(path.join(project, '.opencode/vendor/rtk/rtk'), 'tampered');
   assert.equal(rtkStatus({ project, target }).state, 'stale');
+});
+
+test('optimization flags are paired, omitted flags stay undefined, and master opt-out is explicit', () => {
+  assert.deepEqual(parseArgs([]), { dryRun: false, noRtk: false });
+  assert.deepEqual(parseArgs(['--compaction', '--no-tool-output', '--usage-audit', '--no-optimizations']), {
+    dryRun: false, noRtk: false, compaction: true, toolOutput: false, usageAudit: true, noOptimizations: true,
+  });
+  assert.equal(parseArgs(['--no-compaction']).compaction, false);
+  assert.equal(parseArgs(['--no-usage-audit']).usageAudit, false);
+  assert.throws(() => parseArgs(['--tool-output=yes']), /Unknown or incomplete/);
+  assert.throws(() => parseArgs(['--compaction', '--no-compaction']), /Conflicting arguments/);
+  assert.throws(() => parseArgs(['--no-tool-output', '--tool-output']), /Conflicting arguments/);
+  assert.throws(() => parseArgs(['--usage-audit', '--no-usage-audit']), /Conflicting arguments/);
+  assert.equal(parseArgs(['--adopt-usage-audit']).adoptUsageAudit, true);
+});
+
+test('contradictory paired flags fail before install preview or RTK work', async () => {
+  let calls = 0; const errors = [];
+  const code = await main(['--compaction', '--no-compaction'], {
+    installFn: () => { calls++; throw new Error('must not preview'); },
+    statusFn: () => { calls++; throw new Error('must not inspect RTK'); },
+    provision: async () => { calls++; },
+    log: () => {}, error: line => errors.push(line),
+  });
+  assert.equal(code, 1); assert.equal(calls, 0);
+  assert.match(errors.join('\n'), /Conflicting arguments/);
+});
+
+test('CLI help explains default-on profiles, persistence, positive re-enable, and unchanged install command', async () => {
+  const lines = [];
+  const code = await main(['--help'], { log: line => lines.push(line), error: line => lines.push(line) });
+  const output = lines.join('\n');
+  assert.equal(code, 0);
+  assert.match(output, /npx --yes github:sambaths\/opencode-toolkit --project \./);
+  for (const flag of ['--compaction', '--no-compaction', '--tool-output', '--no-tool-output', '--usage-audit', '--no-usage-audit', '--adopt-usage-audit', '--no-optimizations']) {
+    assert.ok(output.includes(flag), flag);
+  }
+  assert.match(output, /omitted.*retain|retain.*omitted/i);
+  assert.match(output, /positive.*re-enable|re-enable.*positive/i);
+  assert.match(output, /automatic.*rewrit.*off|rewriting stays disabled/i);
+  assert.match(output, /compaction \(session model/);
+  assert.match(output, /no forced agents\.compaction\.model/);
 });

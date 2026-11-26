@@ -1,0 +1,46 @@
+name: Bug report
+description: Report a reproducible problem with the toolkit.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share enough detail to reproduce the problem. Do not include credentials, API keys, tokens, or private configuration.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Include the error and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Give exact commands and setup. Use a minimal example when possible.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the toolkit version or commit, Node.js and npm versions, OS and architecture, OpenCode version, and install command or options.
+      placeholder: |
+        Toolkit version / commit:
+        Node.js:
+        npm:
+        OS / architecture:
+        OpenCode version:
+        Install command / options:
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Relevant output
+      description: Paste sanitized logs or errors. Remove secrets and private paths.
+      render: text

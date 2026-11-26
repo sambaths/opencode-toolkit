@@ -10,47 +10,48 @@ Fix build and TypeScript errors with minimal changes: $ARGUMENTS
 
 ## Your Task
 
-1. **Run type check**: `npx tsc --noEmit`
-2. **Collect all errors**
-3. **Fix errors one by one** with minimal changes
-4. **Verify each fix** doesn't introduce new errors
-5. **Run final check** to confirm all errors resolved
+1. Run the project's type check, such as `npx tsc --noEmit`.
+2. Collect all errors.
+3. Fix them one at a time with minimal changes.
+4. Verify each fix doesn't introduce new errors.
+5. Run a final check.
 
 ## Approach
 
-### DO:
-- PASS: Fix type errors with correct types
-- PASS: Add missing imports
-- PASS: Fix syntax errors
-- PASS: Make minimal changes
-- PASS: Preserve existing behavior
-- PASS: Run `tsc --noEmit` after each change
+### Do
 
-### DON'T:
-- FAIL: Refactor code
-- FAIL: Add new features
-- FAIL: Change architecture
-- FAIL: Use `any` type (unless absolutely necessary)
-- FAIL: Add `@ts-ignore` comments
-- FAIL: Change business logic
+- Fix type errors with correct types.
+- Add missing imports.
+- Fix syntax errors.
+- Keep changes minimal and preserve behavior.
+- Re-run the type check after each change.
+
+### Don't
+
+- Refactor or add features.
+- Change architecture or business logic.
+- Use `any` unless it's truly necessary.
+- Add `@ts-ignore` comments.
 
 ## Common Error Fixes
 
 | Error | Fix |
-|-------|-----|
-| Type 'X' is not assignable to type 'Y' | Add correct type annotation |
-| Property 'X' does not exist | Add property to interface or fix property name |
-| Cannot find module 'X' | Install package or fix import path |
-| Argument of type 'X' is not assignable | Cast or fix function signature |
-| Object is possibly 'undefined' | Add null check or optional chaining |
+| --- | --- |
+| Type 'X' is not assignable to type 'Y' | Add the correct annotation. |
+| Property 'X' does not exist | Fix the interface or property name. |
+| Cannot find module 'X' | Fix the import path; install only with authorization. |
+| Argument of type 'X' is not assignable | Cast or fix the function signature. |
+| Object is possibly 'undefined' | Add a null check or optional chaining. |
 
 ## Verification Steps
 
-After fixes:
-1. `npx tsc --noEmit` - should show 0 errors
-2. `npm run build` - should succeed
-3. `npm test` - tests should still pass
+Run the project's type check, build, and tests:
 
----
+```bash
+npx tsc --noEmit
+npm run build
+npm test
+```
 
-**IMPORTANT**: Focus on fixing errors only. No refactoring, no improvements, no architectural changes. Get the build green with minimal diff.
+Use the actual configured commands. Focus on errors only: no refactoring,
+improvements, or architectural changes. Get the build green with a minimal diff.

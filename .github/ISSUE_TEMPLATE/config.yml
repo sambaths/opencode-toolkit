@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Read the documentation
+    url: https://github.com/sambaths/opencode-toolkit#readme
+    about: Check the installation and usage instructions before opening an issue.
+  - name: Report a security vulnerability privately
+    url: https://github.com/sambaths/opencode-toolkit/security/advisories/new
+    about: Use GitHub's private security advisory form instead of a public issue.

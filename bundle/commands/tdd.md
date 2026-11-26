@@ -6,7 +6,7 @@ subagent: true
 
 # TDD Command
 
-Implement the following using strict test-driven development: $ARGUMENTS
+Implement this with test-driven development: $ARGUMENTS
 
 ## TDD Cycle (MANDATORY)
 
@@ -14,7 +14,7 @@ Implement the following using strict test-driven development: $ARGUMENTS
 RED → GREEN → REFACTOR → REPEAT
 ```
 
-1. **RED**: When the task calls for tests and the project has an appropriate test seam, write a failing test first.
+1. **RED**: When the task calls for tests and the project has a suitable seam, write a failing test first.
 2. **GREEN**: Write the minimum change that satisfies the test and request.
 3. **REFACTOR**: Refactor only where useful, keeping relevant checks green.
 4. **REPEAT**: Continue until the requested scope is complete.
@@ -22,27 +22,32 @@ RED → GREEN → REFACTOR → REPEAT
 ## Your Task
 
 ### Step 1: Learn the project
-- Identify the language, framework, test tools, conventions, and applicable instructions.
-- Do not impose a language-specific scaffold.
+
+Identify the language, framework, test tools, conventions, and instructions.
+Don't impose a language-specific scaffold.
 
 ### Step 2: Write Failing Tests (RED)
-- Write tests that exercise the interface
-- Include happy path, edge cases, and error conditions
-- Run tests - verify they FAIL
+
+- Exercise the interface.
+- Cover happy paths, edge cases, and errors.
+- Run the tests and verify they fail.
 
 ### Step 3: Implement Minimal Code (GREEN)
-- Write just enough code to make tests pass
-- No premature optimization
-- Run tests - verify they PASS
 
-### Step 4: Refactor (IMPROVE)
-- Extract constants, improve naming
-- Remove duplication
-- Run tests - verify they still PASS
+- Write just enough code to pass.
+- Don't optimize prematurely.
+- Run the tests and verify they pass.
+
+### Step 4: Refactor
+
+- Extract constants and improve names where useful.
+- Remove duplication.
+- Re-run the tests.
 
 ### Step 5: Check project-defined coverage goals
-- Apply only if the project has a documented coverage target or the user requested one.
-- Do not invent thresholds or expand scope solely to meet a generic percentage.
+
+Apply a target only when the project documents one or the user asks. Don't invent
+a threshold or expand scope just to meet a generic percentage.
 
 ## Test Types to Include
 

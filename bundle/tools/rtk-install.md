@@ -1,7 +1,7 @@
 # Managed RTK OSS installation
 
-This page covers installer behavior for the optional RTK binary. Use and
-permission boundaries are in [rtk.md](rtk.md).
+The normal install includes RTK. `--no-rtk` skips it. This page covers installer
+behavior; use and permission boundaries are in [rtk.md](rtk.md).
 
 ## Default behavior
 
@@ -11,7 +11,7 @@ The normal toolkit install also provisions a project-local RTK binary:
 npx --yes github:sambaths/opencode-toolkit --project .
 ```
 
-The same command and the same model flags remain the only required steps:
+The same command works with model flags; there's no extra RTK step:
 
 ```sh
 npx --yes github:sambaths/opencode-toolkit --project . \
@@ -19,11 +19,10 @@ npx --yes github:sambaths/opencode-toolkit --project . \
   --coding-model 'provider/coder#variant'
 ```
 
-RTK OSS v1.2.1 is installed under `<project>/.opencode/vendor/rtk/` as `rtk`
-(`rtk.exe` on Windows), its upstream `LICENSE`, and `metadata.json`. The
-installer never runs the binary, adds no `PATH` entry, installs no plugin or
-hook, runs no `rtk init`, edits no permissions or model settings, and enables no
-automatic command rewriting.
+RTK OSS v1.2.1 lands in `<project>/.opencode/vendor/rtk/` as `rtk` (`rtk.exe` on
+Windows), its upstream `LICENSE`, and `metadata.json`. The installer never runs
+the binary, changes PATH, installs a plugin/hook, runs `rtk init`, edits
+permissions/model settings, or enables automatic command rewriting.
 
 Invoke the managed path explicitly when a separately authorized trial calls for
 it:
@@ -39,16 +38,14 @@ A wrapped command is a different policy resource from the bare command. See
 
 - `--no-rtk` skips RTK completely. No RTK network request is made, and an
   existing managed RTK installation is left untouched.
-- `--dry-run` makes no toolkit or RTK writes and no RTK download. It reports the
-  effective RTK path and whether a managed install is absent, would be verified,
-  or would be replaced. The surrounding `npx` package fetch is outside this
-  guarantee.
+- `--dry-run` makes no toolkit/RTK writes or RTK download. It reports the RTK path
+  and whether a managed install is absent, would be verified, or would be replaced.
+  The surrounding `npx` package fetch is outside this guarantee.
 - For a local source install, install Node dependencies first, then run:
   `node /path/to/toolkit/bin/install.mjs --project /path/to/project --no-rtk`.
-- Unsupported platforms, HTTPS/network failures, archive-integrity failures,
-  unmanaged collisions, and unsafe paths fail explicitly with `--no-rtk`
-  advice. There is no silent fallback to another asset, a source build, a
-  "latest" release, or an already-present system RTK.
+- Unsupported platforms, network/integrity failures, unmanaged collisions, and
+  unsafe paths fail with `--no-rtk` advice. There's no silent fallback to another
+  asset, source build, "latest" release, or system RTK.
 
 ## Pinned release
 
@@ -65,30 +62,28 @@ Edition: Apache-2.0 OSS assets (`rtk-oss-*`), not the general `rtk-*` assets.
 | darwin-arm64 | `rtk-oss-aarch64-apple-darwin.tar.gz` | `5a37e5e8e016b559597024900e7b21cff7a0015aa189ac6ac80d461cbb4be65b` |
 | win32-x64 | `rtk-oss-x86_64-pc-windows-msvc.zip` | `43124168ec0733b50f7e9e1f1b994ced9b0693b9e92281428f64990c308bf1c8` |
 
-Only these five targets are reviewed. The installer downloads over HTTPS from
-the pinned GitHub release path, permits only the initial GitHub host and the
-`release-assets.githubusercontent.com` redirect host, bounds redirects, applies
-a timeout, caps the archive at 64 MiB, and verifies the archive SHA-256 before
-in-memory extraction. Extraction accepts exactly the binary and `LICENSE` from
-the archive; it does not extract arbitrary paths to disk.
+Only these five targets are reviewed. The installer uses HTTPS and the pinned
+GitHub release path. It permits only GitHub and the
+`release-assets.githubusercontent.com` redirect host, bounds redirects, applies a
+timeout, caps the archive at 64 MiB, and verifies SHA-256 before in-memory
+extraction. Extraction accepts exactly the binary and `LICENSE`; arbitrary archive
+paths aren't written.
 
-Trust is scoped to the reviewed archive digest. It does **not** establish build
-reproducibility, publisher authenticity, or that a binary is safe to execute.
-The upstream `LICENSE` is preserved. `metadata.json` records the pin, target,
-archive hash, and installed-file hashes.
+Trust is scoped to the reviewed digest. It doesn't establish build reproducibility,
+publisher authenticity, or binary safety. The upstream `LICENSE` is preserved.
+`metadata.json` records the pin, target, archive hash, and installed-file hashes.
 
 ## Updates, failure, and recovery
 
-- Re-running the install verifies the managed files against the recorded pin and
-  does not download again when they are intact.
-- Replacement stages files in a private temporary directory under
-  `.opencode/vendor/`, then promotes the managed directory. A caught activation
-  failure restores the previous managed installation when one existed.
-- This is not a whole-tree transaction. An I/O failure or process crash can
-  leave a partial toolkit install, a staging/backup directory, or a toolkit that
-  installed successfully while RTK did not. In that last case the CLI prints
-  that partial outcome and exits nonzero; rerun with `--no-rtk` if RTK is not
-  wanted.
+- Re-running verifies managed files against the pin. Intact files aren't
+  downloaded again.
+- Replacement stages files in a private temp directory under `.opencode/vendor/`,
+  then promotes the managed directory. A caught activation failure restores the
+  previous managed install when one existed.
+- This isn't a whole-tree transaction. An I/O failure or crash can leave a partial
+  toolkit install, staging/backup directory, or toolkit installed without RTK. For
+  that last case, the CLI reports the partial outcome and exits nonzero. Rerun
+  with `--no-rtk` if you don't want RTK.
 - The installer manages only `.opencode/vendor/rtk` plus its own staging and
   backup names. It does not remove unrelated vendor content. A pre-existing
   directory without toolkit metadata, unknown files, symlinks, hardlinks, or
@@ -98,8 +93,14 @@ archive hash, and installed-file hashes.
 
 ## Limits
 
-Availability is not integration. This installer provides no runtime
-compatibility proof, token or percentage-savings guarantee, permission
-enforcement, telemetry control, or automatic failover. It configures no RTK
-telemetry or privacy settings. Report failures as missing or unverified optional
-tooling rather than silently substituting another binary.
+Availability isn't integration. This installer provides no runtime compatibility
+proof, token/percentage-savings guarantee, permission enforcement, telemetry
+control, or automatic failover. It doesn't configure RTK telemetry or privacy.
+Report failures as missing or unverified optional tooling; don't silently
+substitute another binary.
+
+## Sources
+
+- [RTK repository](https://github.com/rtk-ai/rtk)
+- [RTK v1.2.1 release](https://github.com/rtk-ai/rtk/releases/tag/v1.2.1)
+- [Pinned release source](https://github.com/rtk-ai/rtk/tree/d0f0399a5ff8cd1d81325a033f0b2d8864d665f6)

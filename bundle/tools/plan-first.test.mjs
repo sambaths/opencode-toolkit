@@ -264,7 +264,9 @@ test('README documents token-efficiency evidence and optional tools without over
   assert.match(readme, /not a plan author, quality\s+enforcer, or runtime controller/i);
   assert.match(readme, /same single `npx` installation auto-provisions the managed RTK OSS binary/i);
   assert.match(readme, /no extra steps/i);
-  assert.match(readme, /safe optimization behavior is the default/i);
+  assert.match(read('tools/rtk.md'), /Integration:\s+off/i);
+  assert.match(read('tools/rtk.md'), /Runtime behavior and\s+security weren't audited here/i);
+  assert.match(read('tools/rtk.md'), /No runtime\/security execution audit[\s\S]*?is claimed/i);
   assert.match(readme, /Automatic RTK\s+command rewriting, plugin installation, and `init` remain OFF/i);
   assert.match(readme, /permission discovery does not read\s+`\.opencode\/opencode\.json\(c\)`/i);
   assert.doesNotMatch(readme, /default-off manual commands|No automatic install, rewrite, plugin|optional, default-off/i);

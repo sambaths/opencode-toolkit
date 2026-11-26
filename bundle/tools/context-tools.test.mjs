@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import {
-  copyFileSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync,
-  readdirSync, rmSync, symlinkSync, unlinkSync, writeFileSync,
+  copyFileSync, existsSync, linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync,
+  readdirSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync,
 } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -189,7 +189,7 @@ test('audit treats a capped repeated-paragraph occurrence list as incomplete', t
 
 test('audit and pack refuse sensitive roots and sensitive ancestors before reading', t => {
   const parent = fixture(t)
-  const sensitiveRoots = ['.ssh', '.aws', '.git/project', '.env/project', 'secrets/project', 'credentials/project']
+  const sensitiveRoots = ['.ssh', '.aws', '.git/project', '.env/project', '.envrc/project', '.envrc.local/project', 'secrets/project', 'credentials/project']
   for (const relative of sensitiveRoots) {
     const root = path.join(parent, relative)
     write(root, 'instructions/a.md', 'SENSITIVE_ROOT_SENTINEL\n')
@@ -351,6 +351,11 @@ test('pack refuses unsafe selections before returning their content', t => {
   mkdirSync(root)
   write(root, 'ok.txt', 'SAFE_OK\n')
   write(root, '.env', 'TOP_SECRET_VALUE\n')
+  write(root, '.envrc', 'ENVRC_SECRET_VALUE\n')
+  write(root, '.envrc.local', 'ENVRC_LOCAL_SECRET_VALUE\n')
+  write(root, 'auth/config.txt', 'AUTH_SEGMENT_SECRET\n')
+  write(root, 'secret/config.txt', 'SECRET_SEGMENT_SECRET\n')
+  write(root, 'credential/config.txt', 'CREDENTIAL_SEGMENT_SECRET\n')
   write(root, 'auth.json', 'AUTH_SECRET\n')
   write(root, 'id_rsa', 'RSA_SECRET\n')
   write(root, 'server.pem', 'PEM_SECRET\n')
@@ -368,6 +373,11 @@ test('pack refuses unsafe selections before returning their content', t => {
     { path: '../outside.txt', start: 1, end: 1 },
     { path: '/etc/passwd', start: 1, end: 1 },
     { path: '.env', start: 1, end: 1 },
+    { path: '.envrc', start: 1, end: 1 },
+    { path: '.envrc.local', start: 1, end: 1 },
+    { path: 'auth/config.txt', start: 1, end: 1 },
+    { path: 'secret/config.txt', start: 1, end: 1 },
+    { path: 'credential/config.txt', start: 1, end: 1 },
     { path: 'auth.json', start: 1, end: 1 },
     { path: 'id_rsa', start: 1, end: 1 },
     { path: 'server.pem', start: 1, end: 1 },
@@ -377,16 +387,20 @@ test('pack refuses unsafe selections before returning their content', t => {
     { path: 'bin.dat', start: 1, end: 1 },
     { path: 'huge.txt', start: 1, end: 1 },
     { path: 'dir', start: 1, end: 1 },
+    { path: '.npmrc.', start: 1, end: 1 },
+    { path: '.. ', start: 1, end: 1 },
+    { path: 'C:\\outside.txt', start: 1, end: 1 },
+    { path: '\\\\server\\share\\outside.txt', start: 1, end: 1 },
   ]
   const result = run(['pack', '--root', root, '--max-file-bytes', '64'], packet({}, selections))
   assert.equal(result.status, 1)
   assert.match(result.stdout, /Pack status: UNFULFILLED/)
   assert.match(result.stdout, /SAFE_OK/)
-  for (const secret of ['TOP_SECRET_VALUE', 'AUTH_SECRET', 'RSA_SECRET', 'PEM_SECRET', 'SSH_SECRET', 'BINARY_SECRET', 'HUGE_SECRET', 'OUTSIDE_SECRET', 'DIR_SECRET', 'root:x:']) {
+  for (const secret of ['TOP_SECRET_VALUE', 'ENVRC_SECRET_VALUE', 'ENVRC_LOCAL_SECRET_VALUE', 'AUTH_SEGMENT_SECRET', 'SECRET_SEGMENT_SECRET', 'CREDENTIAL_SEGMENT_SECRET', 'AUTH_SECRET', 'RSA_SECRET', 'PEM_SECRET', 'SSH_SECRET', 'BINARY_SECRET', 'HUGE_SECRET', 'OUTSIDE_SECRET', 'DIR_SECRET', 'root:x:']) {
     assert.ok(!result.stdout.includes(secret), secret)
   }
   for (const reason of [
-    /traversal or non-canonical path refused/, /absolute path refused/, /sensitive path refused/,
+    /traversal or non-canonical path refused/, /absolute path refused/, /sensitive path refused/, /Windows aliases/,
     /symlink path component refused/, /hard-linked file refused/, /binary content refused/,
     /exceeds 64-byte limit/, /not a regular file/,
   ]) assert.match(result.stdout, reason)
@@ -396,6 +410,123 @@ test('pack refuses unsafe selections before returning their content', t => {
   const linked = audit(linkedRoot)
   assert.notEqual(linked.status, 0)
   assert.match(linked.stderr, /symlinked root/)
+})
+
+test('POSIX pack normalizes backslash selections once before symlink traversal and reads', { skip: process.platform === 'win32' }, t => {
+  const parent = fixture(t)
+  const root = path.join(parent, 'project')
+  const outside = path.join(parent, 'outside')
+  mkdirSync(root)
+  mkdirSync(outside)
+  writeFileSync(path.join(outside, 'link.txt'), 'OUTSIDE_BACKSLASH_SENTINEL\n')
+  write(root, 'dir\\link.txt', 'POSIX_BACKSLASH_DECOY\n')
+  symlinkSync(outside, path.join(root, 'dir'), 'dir')
+
+  const result = run(['pack', '--root', root], packet({}, [{ path: 'dir\\link.txt', start: 1, end: 1 }]))
+  assert.equal(result.status, 1)
+  assert.match(result.stdout, /symlink path component refused/)
+  assert.ok(!result.stdout.includes('OUTSIDE_BACKSLASH_SENTINEL'))
+  assert.ok(!result.stdout.includes('POSIX_BACKSLASH_DECOY'))
+})
+
+test('audit and pack treat .envrc files and directories as sensitive', t => {
+  const root = fixture(t)
+  write(root, 'agents/.envrc', 'ENVRC_AGENT_SECRET\n')
+  write(root, '.envrc/project/file.txt', 'ENVRC_DIRECTORY_SECRET\n')
+  const report = JSON.parse(audit(root).stdout)
+  assert.deepEqual(report.files, [])
+  assert.ok(!JSON.stringify(report).includes('ENVRC_AGENT_SECRET'))
+  assert.ok(!JSON.stringify(report).includes('ENVRC_DIRECTORY_SECRET'))
+
+  const result = run(['pack', '--root', root], packet({}, [
+    { path: '.envrc', start: 1, end: 1 },
+    { path: '.envrc/project/file.txt', start: 1, end: 1 },
+  ]))
+  assert.equal(result.status, 1)
+  assert.match(result.stdout, /sensitive path refused/)
+  assert.ok(!result.stdout.includes('ENVRC_AGENT_SECRET'))
+  assert.ok(!result.stdout.includes('ENVRC_DIRECTORY_SECRET'))
+
+  const parent = fixture(t)
+  const sensitiveRoot = path.join(parent, '.envrc/project')
+  write(sensitiveRoot, 'instructions/a.md', 'ENVRC_ROOT_SECRET\n')
+  const refused = audit(sensitiveRoot)
+  assert.notEqual(refused.status, 0)
+  assert.match(refused.stderr, /sensitive root/i)
+  assert.ok(!refused.stderr.includes('ENVRC_ROOT_SECRET'))
+})
+
+test('POSIX pack reads stay anchored to the opened root during a parent-swap race', { skip: process.platform === 'win32' }, t => {
+  const parent = fixture(t)
+  const root = path.join(parent, 'project')
+  const source = path.join(root, 'src')
+  const held = path.join(parent, 'held-src')
+  const external = path.join(parent, 'external-src')
+  mkdirSync(source, { recursive: true })
+  writeFileSync(path.join(source, 'a.txt'), 'ANCHORED_ORIGINAL\n')
+  mkdirSync(external)
+  writeFileSync(path.join(external, 'a.txt'), 'EXTERNAL_RACE_CANARY\n')
+  const hook = path.join(parent, 'swap-hook.cjs')
+  writeFileSync(hook, `
+    const fs = require('node:fs');
+    const original = fs.openSync;
+    let swapped = false;
+    fs.openSync = function(file, flags, mode) {
+      if (!swapped && typeof file === 'string' && /\\/a\\.txt$/.test(file) &&
+          (file.includes('/proc/self/fd/') || file.includes('/dev/fd/'))) {
+        swapped = true;
+        fs.renameSync(${JSON.stringify(source)}, ${JSON.stringify(held)});
+        fs.symlinkSync(${JSON.stringify(external)}, ${JSON.stringify(source)}, 'dir');
+      }
+      return original.call(fs, file, flags, mode);
+    };
+    require('node:module').syncBuiltinESMExports();
+  `)
+  const env = { ...process.env, NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --require ${hook}`.trim() }
+  const result = spawnSync(process.execPath, [tool, 'pack', '--root', root], {
+    encoding: 'utf8', env, input: packet({}, [{ path: 'src/a.txt', start: 1, end: 1 }]),
+  })
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /ANCHORED_ORIGINAL/)
+  assert.ok(!result.stdout.includes('EXTERNAL_RACE_CANARY'))
+  assert.equal(readFileSync(path.join(held, 'a.txt'), 'utf8'), 'ANCHORED_ORIGINAL\n')
+})
+
+test('POSIX root open stays anchored through an ancestor-symlink race', { skip: process.platform === 'win32' }, t => {
+  const parent = fixture(t)
+  const grand = path.join(parent, 'grand')
+  const ancestor = path.join(grand, 'ancestor')
+  const root = path.join(ancestor, 'project')
+  const held = path.join(parent, 'held-grand')
+  const external = path.join(parent, 'external')
+  mkdirSync(path.join(root, 'src'), { recursive: true })
+  writeFileSync(path.join(root, 'src/a.txt'), 'ANCESTOR_ORIGINAL\n')
+  mkdirSync(path.join(external, 'ancestor/project/src'), { recursive: true })
+  writeFileSync(path.join(external, 'ancestor/project/src/a.txt'), 'ANCESTOR_EXTERNAL_CANARY\n')
+  const hook = path.join(parent, 'ancestor-hook.cjs')
+  writeFileSync(hook, `
+    const fs = require('node:fs');
+    const original = fs.openSync;
+    let swapped = false;
+    fs.openSync = function(file, flags, mode) {
+      if (!swapped && typeof file === 'string' && file.endsWith('/project')) {
+        swapped = true;
+        fs.renameSync(${JSON.stringify(grand)}, ${JSON.stringify(held)});
+        fs.symlinkSync(${JSON.stringify(external)}, ${JSON.stringify(grand)}, 'dir');
+      }
+      return original.call(fs, file, flags, mode);
+    };
+    require('node:module').syncBuiltinESMExports();
+  `)
+  const env = { ...process.env, NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --require ${hook}`.trim() }
+  const result = spawnSync(process.execPath, [tool, 'pack', '--root', root], {
+    encoding: 'utf8', env, input: packet({}, [{ path: 'src/a.txt', start: 1, end: 1 }]),
+  })
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /ANCESTOR_ORIGINAL/)
+  assert.ok(!result.stdout.includes('ANCESTOR_EXTERNAL_CANARY'))
+  assert.equal(readFileSync(path.join(held, 'ancestor/project/src/a.txt'), 'utf8'), 'ANCESTOR_ORIGINAL\n')
+  assert.equal(lstatSync(grand).isSymbolicLink(), true)
 })
 
 test('duplicate selections do not silence the supplied plan', t => {

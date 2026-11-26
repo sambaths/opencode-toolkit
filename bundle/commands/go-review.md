@@ -6,14 +6,14 @@ subagent: true
 
 # Go Review Command
 
-Review Go code for idiomatic patterns and best practices: $ARGUMENTS
+Review Go code for idioms and project requirements: $ARGUMENTS
 
 ## Your Task
 
-1. **Analyze Go code** for idioms and patterns
-2. **Check concurrency** - goroutines, channels, mutexes
-3. **Review error handling** - proper error wrapping
-4. **Verify performance** - allocations, bottlenecks
+1. **Analyze** idioms and patterns.
+2. **Check concurrency**: goroutines, channels, mutexes.
+3. **Review errors**: checked errors and context wrapping.
+4. **Verify performance**: allocations and bottlenecks.
 
 ## Review Checklist
 
@@ -68,4 +68,4 @@ Review Go code for idiomatic patterns and best practices: $ARGUMENTS
 
 ---
 
-**TIP**: Run `go vet` and `staticcheck` for additional automated checks.
+Run `go vet` and `staticcheck` when they match the project's checks.
