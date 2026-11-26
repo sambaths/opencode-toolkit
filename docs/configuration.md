@@ -125,7 +125,7 @@ The same install command provisions managed RTK OSS v1.2.1 at `.opencode/vendor/
 - `--no-optimizations` does not skip RTK. Use both flags if you want neither.
 - Supported targets, checksums, and failure behavior live in [the RTK install guide](../bundle/tools/rtk-install.md).
 
-For a safe trial, follow [RTK evaluation](rtk-evaluation.md). Don’t use a wrapper to slip past an approval prompt.
+Rewrite integration stays off. A wrapped command is a different permission resource from the bare command; don’t use a wrapper to slip past an approval prompt. Inspect the pinned artifact through [the RTK install guide](../bundle/tools/rtk-install.md).
 
 ## Optional autonomy
 
@@ -136,8 +136,6 @@ Native OpenCode can do more than this toolkit enables. Treat extra autonomy as a
 - **`experimental.full_codemode`:** off. It can expose session interruption for other sessions, background jobs, and subagents. That’s too much authority for a default.
 - **Plugins:** the toolkit installs none. If you add one, pin an exact version or commit. Avoid `@latest`, ranges, and Git branches; OpenCode checks those floating specs at startup and every 24 hours, then installs and reloads newer matches.
 - **MCP:** the toolkit configures no servers. When you add one, set `protocol` explicitly per server: `"legacy"` for a known legacy server or `"2026-07-28"` for a known current one. Use `"auto"` only when you intend protocol probing and can handle the extra startup process.
-
-See the [native-harness roadmap](harness-roadmap.md) for the implementation order behind these boundaries.
 
 ## User configuration and root conflicts
 

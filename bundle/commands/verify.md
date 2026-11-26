@@ -51,6 +51,9 @@ Verify the implementation: $ARGUMENTS
 ### Action Items
 [If FAIL, list what needs to be fixed]
 
+## Change State
+Report local changes, verified changes, committed changes, and pushed changes as separate states. Preserve exact commands and exit status; never pipe or filter a failing command into a passing result.
+
 ---
 
 Do not commit, push, or open a PR unless separately requested.

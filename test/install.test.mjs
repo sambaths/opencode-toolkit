@@ -568,12 +568,14 @@ test('curated skills and local ledger ship in the package file allowlist and ins
   const project = fixture(t); install({ project });
   const manifest = JSON.parse(read(path.join(root, 'package.json')));
   assert.ok(manifest.files.includes('bundle/'));
-  for (const id of ['toolkit-grilling', 'toolkit-handoff', 'toolkit-questionnaire', 'toolkit-diagnosing-bugs', 'toolkit-tdd', 'toolkit-retro']) {
+  for (const id of ['toolkit-grilling', 'toolkit-handoff', 'toolkit-questionnaire', 'toolkit-diagnosing-bugs', 'toolkit-tdd', 'toolkit-retro',
+    'toolkit-writing-for-agents', 'toolkit-codebase-design', 'toolkit-domain-modeling', 'toolkit-github-ops']) {
     assert.ok(existsSync(path.join(project, '.opencode/skills', id, 'SKILL.md')), id);
   }
   assert.ok(existsSync(path.join(project, '.opencode/tools/task-state.mjs')));
   assert.ok(existsSync(path.join(project, '.opencode/tools/task-state.md')));
   assert.ok(existsSync(path.join(project, '.opencode/skills/LICENSE.mattpocock.txt')));
+  assert.ok(existsSync(path.join(project, '.opencode/skills/LICENSE.ecc.txt')));
   assert.ok(existsSync(path.join(project, '.opencode/skills/provenance.json')));
 });
 
@@ -759,7 +761,9 @@ test('explicit source export includes curated license/content but excludes unrel
   const result = spawnSync(process.execPath, [path.join(exporter, 'scripts/export.mjs'), path.join(project, '.opencode')], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   assert.ok(existsSync(path.join(exporter, 'bundle/skills/toolkit-retro/SKILL.md')));
+  assert.ok(existsSync(path.join(exporter, 'bundle/skills/toolkit-github-ops/SKILL.md')));
   assert.ok(existsSync(path.join(exporter, 'bundle/skills/LICENSE.mattpocock.txt')));
+  assert.ok(existsSync(path.join(exporter, 'bundle/skills/LICENSE.ecc.txt')));
   assert.ok(existsSync(path.join(exporter, 'bundle/skills/provenance.json')));
   assert.equal(existsSync(path.join(exporter, 'bundle/skills/unrelated')), false);
   assert.equal(existsSync(path.join(exporter, 'bundle/.toolkit-state')), false);

@@ -1,6 +1,6 @@
 # Support
 
-Start with [README.md](README.md). If a setting is unclear, check [configuration](docs/configuration.md). If you’re evaluating output filtering, read the [RTK evaluation protocol](docs/rtk-evaluation.md) before wrapping a command.
+Start with [README.md](README.md). If a setting is unclear, check [configuration](docs/configuration.md). The shipped RTK facts and constraints are in the [configuration RTK section](docs/configuration.md#rtk-is-separate).
 
 ## Usage questions
 

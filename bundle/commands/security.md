@@ -11,6 +11,8 @@ Review the specified code for security vulnerabilities: $ARGUMENTS
 Use OWASP guidance and the project's security requirements. Check what applies;
 don't claim a category passed if you didn't inspect it.
 
+Review only. Do not apply automatic remediation, commit changes, or print secret values.
+
 ## Security Checklist
 
 ### OWASP Top 10

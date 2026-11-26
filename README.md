@@ -158,7 +158,7 @@ project's tests cannot establish runtime availability.
 
 The installer writes `<project>/.opencode/`: custom team roles, retained ECC
 agents (including the build override), model assignments for built-in
-`plan`/`general`/`explore`, commands and prompts, shared instructions, six curated
+`plan`/`general`/`explore`, commands and prompts, shared instructions, ten curated
 skills, local ledger and context audit/packer tools/tests/evaluator, the managed
 RTK OSS binary, and an ownership manifest. Matching agent/command definitions in
 a project-root `opencode.json(c)` are removed to avoid duplicates; unrelated
@@ -205,9 +205,18 @@ installing them silently. These dependencies may be needed for particular tasks.
   installed files, and configuration. Do not edit it to bypass ownership tracking.
   Files retired from a later bundle are not auto-deleted unless they conflict with
   an exported agent/command ID.
-- Symlinked installation paths are refused. Individual writes use atomic rename;
-  the entire installation is not a filesystem transaction. An I/O failure can
-  leave a partial install; fix the cause and rerun.
+- Symlinked installation paths are refused. At startup the installer probes
+  whether the directory-fd alias (`/proc/self/fd` or `/dev/fd`) traverses child
+  paths. When it does, writes use the fd-anchored backend; otherwise they fall
+  back to a portable backend that verifies parent and target device/inode
+  identity and uses exclusive temp files plus atomic rename. The portable
+  fallback still has small check-to-open, check-to-rename, check-to-unlink, and
+  directory-creation windows, and a moved parent
+  can strand a temporary file outside the reachable tree. RTK's recursive
+  managed-directory cleanup remains path-based, so a concurrent directory
+  replacement during removal is an OS-level residual. The entire
+  installation is not a filesystem transaction. An I/O failure can leave a
+  partial install; fix the cause and rerun.
 - Review inherited global/ancestor/managed settings and any existing plugins.
   Static checks cannot prove the final effective runtime policy.
 
@@ -358,7 +367,7 @@ prompt-led coordination rules, not automatic chat interception or a new runtime.
 
 ### Curated, vendored skills
 
-Six adapted skills ship as local content, not an npm/runtime dependency:
+Ten adapted skills ship as local content, not an npm/runtime dependency:
 
 | Skill ID | When to use |
 | --- | --- |
@@ -366,6 +375,10 @@ Six adapted skills ship as local content, not an npm/runtime dependency:
 | `toolkit-questionnaire` | Necessary outside knowledge; draft questions, do not send |
 | `toolkit-diagnosing-bugs` | Evidence-backed reproduction and diagnosis |
 | `toolkit-tdd` | Project-appropriate regression-first implementation |
+| `toolkit-writing-for-agents` | Skills, pointer wording, progressive disclosure, and doc pruning |
+| `toolkit-codebase-design` | Deep modules, seams, and read-only design reviews |
+| `toolkit-domain-modeling` | Glossary terms, domain contradictions, and ADRs |
+| `toolkit-github-ops` | Read-first GitHub issue, PR, CI, and release inspection with explicit write approval |
 | `toolkit-handoff` | Long-task/session continuity with reconciled context |
 | `toolkit-retro` | Verified-outcome lessons when learning is enabled |
 
@@ -378,10 +391,14 @@ prompt-led, not runtime guarantees; host permission checks still apply. See
 [V2 skills](https://opencode.ai/v2/docs/skills) for discovery and explicit loading.
 
 Content is adapted from [Matt Pocock's skills at pinned commit
-abeeaf95660ba9e8b7c753eb38f441ca707a8823](https://github.com/mattpocock/skills/tree/abeeaf95660ba9e8b7c753eb38f441ca707a8823).
-See NOTICE.md and [bundled provenance](bundle/skills/provenance.json) /
-[upstream license](bundle/skills/LICENSE.mattpocock.txt) for attribution and the
-upstream MIT notice. No upstream checkout, network fetch, dependency install, or
+abeeaf95660ba9e8b7c753eb38f441ca707a8823](https://github.com/mattpocock/skills/tree/abeeaf95660ba9e8b7c753eb38f441ca707a8823)
+(nine skills) and [Everything Claude Code at pinned commit
+4adeee6732a12d1540f49a4d50a38ce8c97f9a53](https://github.com/affaan-m/ECC/tree/4adeee6732a12d1540f49a4d50a38ce8c97f9a53)
+(`toolkit-github-ops`). The ten adaptations and their exact source paths are
+listed in NOTICE.md and the [bundled provenance](bundle/skills/provenance.json);
+the [Matt Pocock MIT notice](bundle/skills/LICENSE.mattpocock.txt) and
+[ECC MIT notice](bundle/skills/LICENSE.ecc.txt) ship with them. No upstream
+checkout, network fetch, dependency install, or
 automatic upstream update occurs when using these skills. Other skills remain
 optional and unbundled. Unrelated local skill IDs are preserved; an unmanaged
 directory colliding with a curated ID causes installation to fail before writes,
@@ -410,20 +427,16 @@ defaults. They need explicit opt-in. Warming costs real requests; interruption c
 stop other sessions and their jobs; auto-updating plugins change code without a
 fresh review.
 
-See the [harness roadmap](docs/harness-roadmap.md) for the rollout plan and the
-[OpenCode changelog](https://opencode.ai/changelog) for version-specific behavior.
+See the [OpenCode changelog](https://opencode.ai/changelog) for version-specific behavior.
 
-## Learn a new domain without guessing
+## Domain onramp
 
-Use **frame -> retrieve -> model -> probe -> teach-back -> implement/handoff**.
-Frame the decision and unknowns, retrieve primary evidence, build a model of the
-system, probe only what you're authorized to test, explain it back, then implement
-or hand off with the evidence and limits attached.
-
-It's read-only by default. Probes need explicit authorization because they can
-change state, spend money, or touch systems you don't own. The composite
-`toolkit-domain-onramp` skill is documented in the
-[domain-learning guide](docs/domain-learning.md), but it's not bundled yet.
+Use `/domain-onramp` in the current manager session for **frame -> retrieve ->
+model -> probe -> teach-back -> slice/hand off**. It is read-only by default,
+probes need authorization, and it stops before implementation unless that is
+separately authorized. The bundled `toolkit-domain-modeling` skill covers the
+glossary and ADR discipline; `toolkit-grilling` and `toolkit-handoff` handle
+material decisions and continuity.
 
 ## Long tasks without losing the plot
 
@@ -435,9 +448,6 @@ budgets, and open writers before compaction or a restart. Reconcile that checkpo
 with the current tree and your intent before resuming. An independent reviewer
 checks the result; the implementer's self-checks don't count as independent review.
 Nothing runs unattended by default.
-
-Native job reconciliation and DAG budgets are roadmap items in the
-[long-horizon guide](docs/long-horizon.md), not shipped runtime enforcement.
 
 ## Context and token efficiency
 
@@ -517,7 +527,9 @@ model-tier assignment, partial overrides, persistence/switching, legacy profile
 updates, invalid selectors before writes, and rendered file hashes. Bundle validation parses YAML,
 checks references/routing, and detects duplicated definitions. Model availability,
 live model behavior, and real Windows/macOS execution are not established by
-Linux tests.
+Linux tests. The managed-filesystem tests force the portable backend and compare
+it with a default install, but Linux cannot prove the probe or portable path
+works on macOS or Windows.
 Ledger tests cover versioning, project scope, schema/corruption checks, acceptance,
 expiry/invalidation, approval/revocation, concurrent writers, and path protections.
 The existing skill evaluator scores supplied manifests, not live model runs.
@@ -536,16 +548,14 @@ didn't copy claims about savings and call them measurements.
   agents, commands, skills, compaction, permissions, and tool output. Upstream
   defaults can change; this README states what the toolkit manages.
 - [Everything Claude Code](https://github.com/affaan-m/ECC) supplied retained
-  agent prompts, command templates, and the skill evaluator.
-- [Matt Pocock's skills](https://github.com/mattpocock/skills) supplied the six
+  agent prompts, command templates, the skill evaluator, and the guarded GitHub
+  operations skill.
+- [Matt Pocock's skills](https://github.com/mattpocock/skills) supplied the nine
   adapted skills. The bundle pins commit
   `abeeaf95660ba9e8b7c753eb38f441ca707a8823`.
 - [RTK](https://github.com/rtk-ai/rtk) and its
   [v1.2.1 release](https://github.com/rtk-ai/rtk/releases/tag/v1.2.1) document the
   managed OSS binary, filtering, recall, and integration limits.
-- [awesome-llm-token-optimization](https://github.com/pleasedodisturb/awesome-llm-token-optimization)
-  is a useful reading list, not evidence that this toolkit saves a fixed number
-  of tokens.
 
 [ATTRIBUTION.md](ATTRIBUTION.md) has the detailed map. [NOTICE.md](NOTICE.md) has
 the provenance and license notices.

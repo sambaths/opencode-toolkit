@@ -525,7 +525,7 @@ const commands = [
   'build-fix', 'code-review', 'e2e', 'go-build', 'go-review', 'go-test',
   'orchestrate', 'plan', 'refactor-clean', 'rust-build', 'rust-review', 'rust-test',
   'security-scan', 'security', 'tdd', 'test-coverage', 'update-codemaps',
-  'update-docs', 'verify', 'council', 'harness-audit', 'setup-pm', 'skill-create', 'usage-audit',
+  'update-docs', 'verify', 'council', 'harness-audit', 'setup-pm', 'skill-create', 'usage-audit', 'domain-onramp',
 ];
 const files = [
   ...instructionFiles,
@@ -537,10 +537,11 @@ const files = [
   'tools/plan-first.test.mjs', 'tools/rtk.md', 'tools/rtk-install.md',
   'tools/usage-audit.mjs', 'tools/usage-audit.test.mjs', 'tools/usage-audit.md',
   'tools/task-state.mjs', 'tools/task-state.test.mjs', 'tools/task-state.md',
-  'skills/LICENSE.mattpocock.txt', 'skills/provenance.json',
+  'skills/LICENSE.mattpocock.txt', 'skills/LICENSE.ecc.txt', 'skills/provenance.json',
   ...configFileReferences,
 ];
-const curatedSkills = ['toolkit-grilling', 'toolkit-handoff', 'toolkit-questionnaire', 'toolkit-diagnosing-bugs', 'toolkit-tdd', 'toolkit-retro'];
+const curatedSkills = ['toolkit-grilling', 'toolkit-handoff', 'toolkit-questionnaire', 'toolkit-diagnosing-bugs', 'toolkit-tdd', 'toolkit-retro',
+  'toolkit-writing-for-agents', 'toolkit-codebase-design', 'toolkit-domain-modeling', 'toolkit-github-ops'];
 function skillFiles(relative, depth = 0) {
   if (depth > MAX_EXPORT_DEPTH) throw new Error(`Export exceeds the ${MAX_EXPORT_DEPTH}-level recursion limit`);
   return readdirBounded(sourceDirectory(source, relative)).flatMap(entry => {

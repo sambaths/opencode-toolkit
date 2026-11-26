@@ -2,6 +2,19 @@
 
 Notable changes to OpenCode Toolkit live here. Exact verification evidence belongs in the relevant change or release, not in marketing copy.
 
+## Unreleased
+
+### Added
+
+- Three adapted Matt Pocock skills at pinned commit `abeeaf95660ba9e8b7c753eb38f441ca707a8823`: `toolkit-writing-for-agents`, `toolkit-codebase-design`, and `toolkit-domain-modeling`, with provenance, validation, export, install, and attribution updates.
+- `/domain-onramp` manager command for a read-only frame → retrieve → model → probe → teach-back → slice/hand-off workflow. Probes need authorization, and implementation needs separate authorization.
+- Guarded `toolkit-github-ops` skill adapted from ECC at pinned commit `4adeee6732a12d1540f49a4d50a38ce8c97f9a53`, with multi-source provenance and a separate ECC MIT notice.
+- Compact command guidance: `/verify` separates local, verified, committed, and pushed state; `/security` stays review-only; `/code-review` anchors findings to the issue/spec and acceptance criteria.
+
+### Removed
+
+- Stale evaluation and roadmap documents: `docs/skill-candidates.md`, `docs/domain-learning.md`, `docs/harness-roadmap.md`, `docs/long-horizon.md`, `docs/github-launch.md`, and `docs/rtk-evaluation.md`. The released 0.2.0 entry is retained as history.
+
 ## 0.2.0 - 2026-11-25
 
 ### Added

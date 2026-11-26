@@ -154,7 +154,8 @@ function globMatches(pattern, target) {
 function actionMatchesProtected(action) {
   return ['shell', 'browser', 'playwright', 'puppeteer'].some(target => globMatches(action, target));
 }
-const curatedSkills = ['toolkit-grilling', 'toolkit-handoff', 'toolkit-questionnaire', 'toolkit-diagnosing-bugs', 'toolkit-tdd', 'toolkit-retro'];
+const curatedSkills = ['toolkit-grilling', 'toolkit-handoff', 'toolkit-questionnaire', 'toolkit-diagnosing-bugs', 'toolkit-tdd', 'toolkit-retro',
+  'toolkit-writing-for-agents', 'toolkit-codebase-design', 'toolkit-domain-modeling', 'toolkit-github-ops'];
 const skillNames = new Set();
 const skillRoot = path.join(bundle, 'skills');
 for (const id of curatedSkills) {
@@ -188,17 +189,49 @@ if (existsSync(skillRoot)) {
 }
 try {
   const provenance = JSON.parse(readFileSync(path.join(skillRoot, 'provenance.json'), 'utf8'));
-  check(provenance.repository === 'https://github.com/mattpocock/skills' && provenance.commit === 'abeeaf95660ba9e8b7c753eb38f441ca707a8823', 'Unrecognized curated skill provenance');
-  check(provenance.license === 'MIT' && provenance.runtimeDependencies?.length === 0, 'Curated skills must remain dependency-free MIT content');
-  const ids = provenance.skills.map(skill => skill.id);
+  check(provenance.runtimeDependencies?.length === 0, 'Curated skills must remain dependency-free content');
+  check(Array.isArray(provenance.sources) && provenance.sources.length > 0, 'Missing curated skill provenance sources');
+  const sourcePins = new Map([
+    ['mattpocock', {
+      repository: 'https://github.com/mattpocock/skills',
+      commit: 'abeeaf95660ba9e8b7c753eb38f441ca707a8823',
+      licenseFile: 'LICENSE.mattpocock.txt',
+      copyright: 'Copyright (c) 2026 Matt Pocock',
+    }],
+    ['ecc', {
+      repository: 'https://github.com/affaan-m/ECC',
+      commit: '4adeee6732a12d1540f49a4d50a38ce8c97f9a53',
+      licenseFile: 'LICENSE.ecc.txt',
+      copyright: 'Copyright (c) 2026 Affaan Mustafa',
+    }],
+  ]);
+  check(provenance.sources.length === sourcePins.size, 'Unexpected curated skill provenance sources');
+  const provenanceSkills = [];
+  const sourceIds = new Set();
+  for (const source of provenance.sources) {
+    const pin = sourcePins.get(source?.id);
+    check(Boolean(pin) && !sourceIds.has(source?.id), `Unknown/duplicate skill provenance source: ${source?.id}`);
+    if (!pin) continue;
+    sourceIds.add(source.id);
+    check(source.repository === pin.repository && source.commit === pin.commit, `Unrecognized provenance for ${source.id}`);
+    check(source.license === 'MIT' && source.copyright === pin.copyright, `Unexpected license for ${source.id}`);
+    check(source.licenseSource === 'LICENSE' && source.licenseFile === pin.licenseFile, `Unexpected license path for ${source.id}`);
+    check(Array.isArray(source.skills) && source.skills.length > 0, `Missing skills for ${source.id}`);
+    const licensePath = path.join(skillRoot, pin.licenseFile);
+    check(existsSync(licensePath), `Missing skill license: ${pin.licenseFile}`);
+    if (existsSync(licensePath)) {
+      const license = readFileSync(licensePath, 'utf8');
+      check(license.includes(pin.copyright) && license.includes('Permission is hereby granted, free of charge'), `Missing upstream MIT notice: ${pin.licenseFile}`);
+    }
+    provenanceSkills.push(...(Array.isArray(source.skills) ? source.skills : []));
+  }
+  check(sourceIds.size === sourcePins.size, 'Missing curated skill provenance source');
+  const ids = provenanceSkills.map(skill => skill.id);
   check(new Set(ids).size === curatedSkills.length && ids.length === curatedSkills.length && curatedSkills.every(id => ids.includes(id)), 'Incomplete/duplicate curated skill provenance');
-  for (const skill of provenance.skills) {
+  for (const skill of provenanceSkills) {
     check(skill.file === `${skill.id}/SKILL.md` && existsSync(path.join(skillRoot, skill.file)), `Invalid skill provenance reference: ${skill.id}`);
     check(Array.isArray(skill.sources) && skill.sources.length > 0 && skill.sources.every(source => typeof source === 'string' && source.startsWith('skills/') && !source.split('/').includes('..')), `Invalid upstream source references: ${skill.id}`);
   }
-  check(provenance.licenseFile === 'LICENSE.mattpocock.txt', 'Unexpected upstream license path');
-  const license = readFileSync(path.join(skillRoot, 'LICENSE.mattpocock.txt'), 'utf8');
-  check(license.includes('Copyright (c) 2026 Matt Pocock') && license.includes('Permission is hereby granted, free of charge'), 'Missing upstream MIT notice');
 } catch (error) { errors.push(`Skill provenance/license: ${error.message}`); }
 for (const directory of ['agents', 'commands']) {
   definitions[directory] = new Map();

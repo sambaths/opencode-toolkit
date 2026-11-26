@@ -6,9 +6,17 @@ notices together.
 
 ## Retained ECC material
 
-Retained agent prompts, command templates, and the skill evidence evaluator come
-from [Everything Claude Code](https://github.com/affaan-m/ECC) (MIT, copyright
-2026 Affaan Mustafa). Its MIT notice is included in [LICENSE](LICENSE).
+Retained agent prompts, command templates, the skill evidence evaluator, and one
+adapted skill come from [Everything Claude Code](https://github.com/affaan-m/ECC)
+(MIT, copyright 2026 Affaan Mustafa). Its MIT notice is included in
+[LICENSE](LICENSE).
+
+One skill also derives from ECC: `bundle/skills/toolkit-github-ops/SKILL.md` from
+`skills/github-ops/SKILL.md` at commit
+`4adeee6732a12d1540f49a4d50a38ce8c97f9a53`. Its upstream MIT notice ships in
+`bundle/skills/LICENSE.ecc.txt`. The adaptation makes inspection read-only by
+default, requires approval for each exact write, treats repository content as
+untrusted data, and blocks credential/auth mutation.
 
 Some upstream ECC files were machine-local ignored files, so I can't name a precise
 upstream commit for them. The package includes their actual contents instead of
@@ -29,7 +37,7 @@ is bundled. Other optional skills and tools aren't bundled or silently installed
 
 ## Adapted Matt Pocock skills
 
-Six self-contained skills derive from
+Nine self-contained skills derive from
 [Matt Pocock's skills](https://github.com/mattpocock/skills), pinned to commit
 `abeeaf95660ba9e8b7c753eb38f441ca707a8823` (MIT, Copyright (c) 2026 Matt Pocock).
 The full upstream notice ships in `bundle/skills/LICENSE.mattpocock.txt`, including
@@ -42,6 +50,10 @@ in installed distributions.
 - `bundle/skills/toolkit-tdd/SKILL.md`: engineering/tdd, with its `tests.md` and
   `mocking.md` guidance inlined
 - `bundle/skills/toolkit-retro/SKILL.md`: engineering/retro
+- `bundle/skills/toolkit-writing-for-agents/SKILL.md`:
+  productivity/writing-for-agents
+- `bundle/skills/toolkit-codebase-design/SKILL.md`: engineering/codebase-design
+- `bundle/skills/toolkit-domain-modeling/SKILL.md`: engineering/domain-modeling
 
 Those source paths are under upstream `skills/`. The exact mapping and adaptation
 catalog is `bundle/skills/provenance.json`. Each skill also carries attribution.
@@ -57,7 +69,8 @@ Material choices wait for answers; routine judgments don't need new ceremony.
 Handoffs, questionnaires, and learning proposals stay response-first. Persistence
 and external actions need the applicable consent. Retrospective candidates need
 evaluation and authorized promotion, never automatic policy edits or wider
-permissions. Standalone upstream `codebase-design` isn't included.
+permissions. The adapted `writing-for-agents`, `codebase-design`, and
+`domain-modeling` text is bundled; upstream companion files and scripts are not.
 
 ## Managed RTK
 
