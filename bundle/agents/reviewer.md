@@ -1,7 +1,6 @@
 ---
 description: Independently reviews requested changes for correctness, regressions, security, and project requirements; never fixes them.
 mode: subagent
-steps: 60
 permissions:
   - action: edit
     resource: "*"

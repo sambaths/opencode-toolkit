@@ -11,6 +11,10 @@ Notable changes to OpenCode Toolkit live here. Exact verification evidence belon
 - Guarded `toolkit-github-ops` skill adapted from ECC at pinned commit `4adeee6732a12d1540f49a4d50a38ce8c97f9a53`, with multi-source provenance and a separate ECC MIT notice.
 - Compact command guidance: `/verify` separates local, verified, committed, and pushed state; `/security` stays review-only; `/code-review` anchors findings to the issue/spec and acceptance criteria.
 
+### Changed
+
+- Default thinking and coding models are both `opencode/deepseek-v4.1-flash`; shipped agents no longer set a fixed `steps` cap.
+
 ### Removed
 
 - Stale evaluation and roadmap documents: `docs/skill-candidates.md`, `docs/domain-learning.md`, `docs/harness-roadmap.md`, `docs/long-horizon.md`, `docs/github-launch.md`, and `docs/rtk-evaluation.md`. The released 0.2.0 entry is retained as history.

@@ -1,7 +1,6 @@
 ---
 description: Evidence-first analysis of authorized shipped software and runtime targets using available REA tools.
 mode: subagent
-steps: 120
 permissions:
   - action: edit
     resource: "*"

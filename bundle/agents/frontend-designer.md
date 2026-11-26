@@ -1,7 +1,6 @@
 ---
 description: Produces actionable UI/UX direction or implements explicitly assigned UI changes in the project's design system.
 mode: subagent
-steps: 60
 permissions:
   - action: subagent
     resource: "*"

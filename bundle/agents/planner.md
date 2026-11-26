@@ -1,7 +1,6 @@
 ---
 description: Produces implementation plans; manages GitHub artifacts only when explicitly requested.
 mode: subagent
-steps: 120
 permissions:
   - action: edit
     resource: "*"

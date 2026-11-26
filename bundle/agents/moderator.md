@@ -1,7 +1,6 @@
 ---
 description: Runs a two-round independent expert council from the top-level session, recording evidence and dissent.
 mode: primary
-steps: 120
 permissions:
   - action: edit
     resource: "*"

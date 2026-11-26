@@ -1,7 +1,6 @@
 ---
 description: Appends requested decisions, dissent, and attempt history to the project's designated notes.
 mode: subagent
-steps: 60
 permissions:
   - action: edit
     resource: "*"

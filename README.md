@@ -96,7 +96,7 @@ updates from manifests without a profile receive these defaults:
 
 | Tier | Default selector | Used by |
 | --- | --- | --- |
-| thinking | `google/gemini-4-hydrogen` | Coordination, planning, review, research, and read-only analysis |
+| thinking | `opencode/deepseek-v4.1-flash` | Coordination, planning, review, research, and read-only analysis |
 | coding | `opencode/deepseek-v4.1-flash` | Implementation, tests, docs, build resolvers, and infrastructure changes |
 
 Choose one or both tiers during install or update:
@@ -106,7 +106,7 @@ npx --yes github:sambaths/opencode-toolkit --project . \
   --thinking-model 'openai/gpt-6.1-sol#high'
 npx --yes github:sambaths/opencode-toolkit --project . \
   --coding-model 'provider/model#variant' \
-  --thinking-model 'google/gemini-4-hydrogen'
+  --thinking-model 'provider/thinker#variant'
 ```
 
 A selector is `provider/model` with an optional `#variant`. Empty, malformed, or

@@ -1,7 +1,6 @@
 ---
 description: Handles complex implementation, integration, and technical handoffs without nested delegation.
 mode: subagent
-steps: 120
 permissions:
   - action: subagent
     resource: "*"

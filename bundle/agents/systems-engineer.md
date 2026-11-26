@@ -1,7 +1,6 @@
 ---
 description: Diagnoses or implements bounded infrastructure, CI/CD, deployment, concurrency, and runtime changes.
 mode: subagent
-steps: 60
 permissions:
   - action: subagent
     resource: "*"

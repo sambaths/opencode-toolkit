@@ -1,7 +1,6 @@
 ---
 description: Independently tests failure paths and regressions, returning reproducible failures without fixing product code.
 mode: subagent
-steps: 60
 permissions:
   - action: edit
     resource: "*"

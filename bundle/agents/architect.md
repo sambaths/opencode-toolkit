@@ -1,7 +1,6 @@
 ---
 description: Evidence-backed architecture analysis and technical tie-breaking; does not modify product files.
 mode: subagent
-steps: 120
 permissions:
   - action: edit
     resource: "*"

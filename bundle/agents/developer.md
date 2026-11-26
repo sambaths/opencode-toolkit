@@ -1,7 +1,6 @@
 ---
 description: Implements a bounded task with focused tests and exact verification evidence.
 mode: subagent
-steps: 60
 permissions:
   - action: subagent
     resource: "*"

@@ -21,7 +21,7 @@ function fixture(t) {
 const run = (...args) => spawnSync(process.execPath, [cli, ...args, '--no-rtk'], { encoding: 'utf8' });
 const read = file => readFileSync(file, 'utf8');
 const configuration = project => JSON.parse(read(path.join(project, '.opencode/opencode.json')));
-const DEFAULT_PROFILE = { thinking: 'google/gemini-4-hydrogen', coding: 'opencode/deepseek-v4.1-flash' };
+const DEFAULT_PROFILE = { thinking: 'opencode/deepseek-v4.1-flash', coding: 'opencode/deepseek-v4.1-flash' };
 const DEFAULT_COMPACTION = { auto: true, keep: { tokens: 15000 }, buffer: '15%', background: false };
 const DEFAULT_TOOL_OUTPUT = { max_lines: 2000, max_bytes: 51200 };
 const USAGE_AUDIT_FILES = ['commands/usage-audit.md', 'tools/usage-audit.mjs', 'tools/usage-audit.md', 'tools/usage-audit.test.mjs'];
@@ -591,7 +591,7 @@ test('fresh install assigns the default profile to every shipped role and built-
   const project = fixture(t);
   const result = run('--project', project);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /Model profile: thinking google\/gemini-4-hydrogen; coding opencode\/deepseek-v4\.1-flash/);
+  assert.match(result.stdout, /Model profile: thinking opencode\/deepseek-v4\.1-flash; coding opencode\/deepseek-v4\.1-flash/);
   assert.match(result.stdout, /availability is not checked/i);
   assert.match(result.stdout, /No automatic failover/i);
   assertAssignments(project, DEFAULT_PROFILE);
@@ -601,6 +601,9 @@ test('fresh install assigns the default profile to every shipped role and built-
   assert.equal(manifest.files['agents/reviewer.md'], createHash('sha256').update(read(reviewer)).digest('hex'));
   for (const command of readdirSync(path.join(project, '.opencode/commands')).filter(file => file.endsWith('.md'))) {
     assert.doesNotMatch(frontmatter(read(path.join(project, '.opencode/commands', command))), /^model:/m, command);
+  }
+  for (const agent of readdirSync(path.join(project, '.opencode/agents')).filter(file => file.endsWith('.md'))) {
+    assert.doesNotMatch(frontmatter(read(path.join(project, '.opencode/agents', agent))), /^steps:/m, agent);
   }
 });
 
@@ -616,7 +619,7 @@ test('model flags override one tier, persist, and retain the other tier across u
   assertAssignments(project, { thinking: 'openai/gpt-6.1-sol#high', coding: 'vendor/coder#fast' });
   result = install({ project, thinkingModel: 'google/gemini-4-hydrogen' });
   assert.equal(result.project, project);
-  assertAssignments(project, { thinking: DEFAULT_PROFILE.thinking, coding: 'vendor/coder#fast' });
+  assertAssignments(project, { thinking: 'google/gemini-4-hydrogen', coding: 'vendor/coder#fast' });
 });
 
 test('legacy manifests without a model profile receive defaults on update', t => {
@@ -677,7 +680,7 @@ test('dry-run reports the effective profile without writing', t => {
   const parent = fixture(t); const project = path.join(parent, 'missing');
   const result = run('--project', project, '--dry-run', '--coding-model', 'vendor/coder#fast');
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /thinking google\/gemini-4-hydrogen/);
+  assert.match(result.stdout, /thinking opencode\/deepseek-v4\.1-flash/);
   assert.match(result.stdout, /coding vendor\/coder#fast/);
   assert.equal(existsSync(project), false);
   const api = install({ project, dryRun: true, thinkingModel: 'vendor/thinker' });

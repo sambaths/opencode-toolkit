@@ -1,7 +1,6 @@
 ---
 description: Researches project and primary web sources, returning cited findings and explicit uncertainty.
 mode: subagent
-steps: 120
 permissions:
   - action: edit
     resource: "*"

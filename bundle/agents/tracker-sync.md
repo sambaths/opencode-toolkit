@@ -1,7 +1,6 @@
 ---
 description: Reads requested tracker records and updates a designated local mirror without modifying remote records.
 mode: subagent
-steps: 60
 permissions:
   - action: edit
     resource: "*"

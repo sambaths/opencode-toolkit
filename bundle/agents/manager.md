@@ -1,7 +1,6 @@
 ---
 description: Inspects, diagnoses, plans, and coordinates engineering work; delegates substantive implementation and independent verification.
 mode: primary
-steps: 120
 permissions:
   - action: edit
     resource: "*"

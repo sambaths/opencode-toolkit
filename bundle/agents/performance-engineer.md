@@ -1,7 +1,6 @@
 ---
 description: Measures performance and recommends evidence-backed improvements without changing product code.
 mode: subagent
-steps: 60
 permissions:
   - action: edit
     resource: "*"

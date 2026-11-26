@@ -1,7 +1,6 @@
 ---
 description: Audits agent, skill, and tool definitions; proposes changes and applies them only with explicit approval.
 mode: subagent
-steps: 60
 permissions:
   - action: edit
     resource: "*"
